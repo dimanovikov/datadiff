@@ -1,0 +1,6 @@
+id,sku,name,category,price,stock
+1001,EL-001,Wireless Mouse,electronics,25.99,140
+1002,EL-002,USB-C Cable,electronics,9.99,520
+1003,HM-010,Ceramic Mug,home,12.50,75
+1004,BK-100,Rust in Practice,books,44.00,32
+1005,HM-011,Desk Lamp,home,39.90,58

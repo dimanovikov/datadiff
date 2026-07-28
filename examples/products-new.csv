@@ -1,0 +1,6 @@
+id,sku,name,category,price,stock
+1002,EL-002,USB-C Cable,electronics,9.99,520
+1001,EL-001,Wireless Mouse,electronics,29.99,140
+1004,BK-100,Rust in Practice,books,44.00,32
+1005,HM-011,Desk Lamp,home,39.90,58
+1006,EL-003,Mechanical Keyboard,electronics,89.00,21

@@ -1,0 +1,30 @@
+{
+  "lockfileVersion": 3,
+  "version": "2.3.0",
+  "name": "shop-frontend",
+  "packages": {
+    "node_modules/react-dom": {
+      "integrity": "sha512-def456",
+      "resolved": "https://registry.npmjs.org/react-dom/-/react-dom-18.2.0.tgz",
+      "version": "18.2.0"
+    },
+    "node_modules/react": {
+      "version": "18.3.1",
+      "resolved": "https://registry.npmjs.org/react/-/react-18.3.1.tgz",
+      "integrity": "sha512-zzz999"
+    },
+    "": {
+      "version": "2.3.0",
+      "name": "shop-frontend",
+      "dependencies": {
+        "react-dom": "^18.2.0",
+        "react": "^18.2.0"
+      }
+    },
+    "node_modules/axios": {
+      "version": "1.7.2",
+      "resolved": "https://registry.npmjs.org/axios/-/axios-1.7.2.tgz",
+      "integrity": "sha512-new000"
+    }
+  }
+}

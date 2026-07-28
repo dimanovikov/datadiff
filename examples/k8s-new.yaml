@@ -1,0 +1,35 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    tier: frontend
+    app: web
+  namespace: production
+  name: web
+spec:
+  selector:
+    matchLabels:
+      app: web
+  replicas: 5
+  template:
+    spec:
+      containers:
+        - image: registry.example.com/web:1.4.2
+          name: web
+          env:
+            - value: info
+              name: LOG_LEVEL
+            - name: CACHE_TTL
+              value: "300"
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: 500m
+            requests:
+              memory: 256Mi
+              cpu: 250m
+          ports:
+            - containerPort: 8080
+    metadata:
+      labels:
+        app: web

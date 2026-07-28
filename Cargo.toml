@@ -1,0 +1,19 @@
+[package]
+name = "datadiff"
+version = "0.1.0"
+edition = "2021"
+description = "Semantic diff for structured data files (JSON, YAML, CSV, TOML)"
+license = "MIT OR Apache-2.0"
+keywords = ["diff", "json", "yaml", "csv", "cli"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yml = "0.0.12"
+csv = "1"
+toml = "0.8"
+anyhow = "1"
+colored = "3"
+dotenvy = "0.15"
