@@ -13,6 +13,10 @@
   бинарник через `CARGO_BIN_EXE_datadiff`
 - CI: GitHub Actions (`.github/workflows/ci.yml`) — build + test на
   ubuntu / windows / macos
+- Релизы: `.github/workflows/release.yml` — по тегу `v*` собирает бинарники
+  (linux x86_64/arm64, macos intel/arm, windows msvc) и выкладывает в
+  GitHub Releases; `install.sh` / `install.ps1` качают бинарник из
+  последнего релиза
 
 ## Сборка и запуск
 
@@ -35,6 +39,11 @@ Build Tools 2019 на машине неполные (нет cl.exe/link.exe), MS
 `~/.rustup/toolchains/stable-x86_64-pc-windows-gnu/lib/rustlib/x86_64-pc-windows-gnu/bin/self-contained/`.
 dlltool ищет `as` только рядом с собой, PATH ему не помогает.
 После переустановки/обновления тулчейна копию нужно восстановить.
+
+Дополнительно: при **чистой** (не закэшированной) сборке windows-sys
+сам rustc не находит `dlltool.exe` (`error calling dlltool
+'dlltool.exe': program not found`) — лечится добавлением той же
+self-contained папки в `PATH` на время сборки.
 
 ## Тесты
 

@@ -26,9 +26,30 @@ Plain `diff` on structured files is noisy:
 
 ## Installation
 
+**macOS / Linux** — one command, no compiler needed (installs to
+`~/.local/bin`):
+
 ```sh
-cargo install --path .
-# or from a release binary: put `datadiff` on your PATH
+curl -fsSL https://raw.githubusercontent.com/cloudroad-io/datadiff/main/install.sh | sh
+```
+
+**Windows** — in PowerShell (installs to `%LOCALAPPDATA%\Programs\datadiff`
+and adds it to the user PATH):
+
+```powershell
+irm https://raw.githubusercontent.com/cloudroad-io/datadiff/main/install.ps1 | iex
+```
+
+**Manually** — grab the archive for your platform from
+[GitHub Releases](https://github.com/cloudroad-io/datadiff/releases/latest)
+(Linux x86_64/ARM, macOS Intel/Apple Silicon, Windows x86_64) and put
+`datadiff` on your PATH.
+
+**With Rust installed**:
+
+```sh
+cargo install datadiff          # from crates.io
+cargo install --path .          # from a local checkout
 ```
 
 ## Usage

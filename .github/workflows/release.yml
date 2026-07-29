@@ -1,0 +1,56 @@
+name: Release
+
+# Push a version tag to build and publish release binaries:
+#   git tag v0.2.0 && git push origin v0.2.0
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: macos-13 # Intel
+            target: x86_64-apple-darwin
+          - os: macos-14 # Apple Silicon
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Package (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          tar -czf datadiff-${{ github.ref_name }}-${{ matrix.target }}.tar.gz \
+            -C target/${{ matrix.target }}/release datadiff
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path target/${{ matrix.target }}/release/datadiff.exe `
+            -DestinationPath datadiff-${{ github.ref_name }}-${{ matrix.target }}.zip
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: datadiff-${{ github.ref_name }}-${{ matrix.target }}.*
