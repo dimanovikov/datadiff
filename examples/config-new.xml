@@ -1,0 +1,9 @@
+<server>
+  <port>9090</port>
+  <host>localhost</host>
+  <tls version="1.3" enabled="true"/>
+  <routes>
+    <route>/api</route>
+    <route>/health</route>
+  </routes>
+</server>

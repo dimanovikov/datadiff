@@ -8,7 +8,7 @@
 
 - Rust 2021, бинарный crate `datadiff`
 - Зависимости: clap 4 (`derive`, `env`), serde/serde_json, serde_yml,
-  toml, csv, anyhow, colored, dotenvy
+  toml, csv, quick-xml, anyhow, colored, dotenvy
 - Тесты: интеграционные (`tests/cli_tests.rs`), запускают собранный
   бинарник через `CARGO_BIN_EXE_datadiff`
 - CI: GitHub Actions (`.github/workflows/ci.yml`) — build + test на

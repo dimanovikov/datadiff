@@ -13,6 +13,7 @@ pub enum Format {
     Yaml,
     Csv,
     Toml,
+    Xml,
 }
 
 /// Detect the format from a file extension.
@@ -27,6 +28,7 @@ pub fn detect_format(path: &Path) -> anyhow::Result<Format> {
         "yaml" | "yml" => Ok(Format::Yaml),
         "csv" => Ok(Format::Csv),
         "toml" => Ok(Format::Toml),
+        "xml" => Ok(Format::Xml),
         other => {
             bail!("cannot detect format from extension '.{other}' (use --format to specify it)")
         }
@@ -40,6 +42,7 @@ pub fn parse(contents: &str, format: Format) -> anyhow::Result<Value> {
         Format::Yaml => parse_yaml(contents),
         Format::Csv => parse_csv(contents),
         Format::Toml => parse_toml(contents),
+        Format::Xml => parse_xml(contents),
     }
 }
 
@@ -56,6 +59,14 @@ fn parse_yaml(contents: &str) -> anyhow::Result<Value> {
 fn parse_toml(contents: &str) -> anyhow::Result<Value> {
     let v: toml::Value = toml::from_str(contents).context("invalid TOML")?;
     from_serializable(&v).context("failed to convert TOML")
+}
+
+/// Parse XML into the value tree via quick-xml's serde mapping: element
+/// names become keys, attributes become keys with an `@` prefix, and
+/// repeated sibling elements become arrays.
+fn parse_xml(contents: &str) -> anyhow::Result<Value> {
+    let v: serde_json::Value = quick_xml::de::from_str(contents).context("invalid XML")?;
+    Ok(Value::from_serde_json(v))
 }
 
 /// Parse CSV into an array of objects: the header row provides the keys and

@@ -1,8 +1,18 @@
-//! Colored, line-oriented diff rendering.
+//! Diff rendering: colored line-oriented text and machine-readable JSON.
 
 use colored::Colorize;
 
 use crate::diff::{Change, ChangeKind, Summary};
+
+/// Output format selected by `--output`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, clap::ValueEnum)]
+pub enum OutputFormat {
+    /// Human-readable colored lines (default).
+    #[default]
+    Text,
+    /// Machine-readable JSON document.
+    Json,
+}
 
 /// Render one change line. Unchanged entries are skipped unless
 /// `show_unchanged` is set. Returns `None` for skipped entries.
@@ -58,4 +68,41 @@ pub fn render_summary(summary: &Summary) -> String {
         summary.removed,
         summary.modified
     )
+}
+
+/// Render the whole diff as one JSON document:
+/// `{ "changes": [...], "summary": { ... } }`. Unchanged entries are
+/// included only when `show_unchanged` is set (mirrors the text output).
+pub fn render_json(changes: &[Change], summary: &Summary, show_unchanged: bool) -> String {
+    let changes_json: Vec<serde_json::Value> = changes
+        .iter()
+        .filter(|c| show_unchanged || c.kind != ChangeKind::Unchanged)
+        .map(|c| {
+            serde_json::json!({
+                "type": change_kind_str(c.kind),
+                "path": c.path,
+                "old": c.old.as_ref().map(|v| v.to_serde_json()).unwrap_or(serde_json::Value::Null),
+                "new": c.new.as_ref().map(|v| v.to_serde_json()).unwrap_or(serde_json::Value::Null),
+            })
+        })
+        .collect();
+    let doc = serde_json::json!({
+        "changes": changes_json,
+        "summary": {
+            "added": summary.added,
+            "removed": summary.removed,
+            "modified": summary.modified,
+            "total": summary.total(),
+        },
+    });
+    serde_json::to_string_pretty(&doc).unwrap_or_default()
+}
+
+fn change_kind_str(kind: ChangeKind) -> &'static str {
+    match kind {
+        ChangeKind::Added => "added",
+        ChangeKind::Removed => "removed",
+        ChangeKind::Modified => "modified",
+        ChangeKind::Unchanged => "unchanged",
+    }
 }

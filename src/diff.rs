@@ -157,7 +157,7 @@ fn key_map(arr: &[Value], key: &str) -> Option<std::collections::BTreeMap<String
 }
 
 /// Render a scalar key value for use in paths (`users[id=4217]`).
-fn scalar_key_text(v: &Value) -> Option<String> {
+pub(crate) fn scalar_key_text(v: &Value) -> Option<String> {
     match v {
         Value::Null => Some("null".to_string()),
         Value::Bool(b) => Some(b.to_string()),
