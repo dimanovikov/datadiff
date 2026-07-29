@@ -1,10 +1,17 @@
 # datadiff
 
+[![CI](https://github.com/cloudroad-io/datadiff/actions/workflows/ci.yml/badge.svg)](https://github.com/cloudroad-io/datadiff/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/datadiff.svg)](https://crates.io/crates/datadiff)
+[![GitHub release](https://img.shields.io/github/v/release/cloudroad-io/datadiff)](https://github.com/cloudroad-io/datadiff/releases/latest)
+[![license](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
+
 Semantic diff for structured data files — **JSON, YAML, CSV, TOML, XML**.
 
 `datadiff` understands the *structure* of your data instead of comparing files
 line by line. Reordered keys, reformatting and rewrapped YAML produce no
 noise; real changes are reported as **data paths**, not line numbers.
+
+![datadiff vs plain git diff](docs/demo.png)
 
 ## The pain
 
@@ -23,6 +30,24 @@ Plain `diff` on structured files is noisy:
   is not a change.
 - CSV is compared row by row via a key column, reported as
   `row id=4217, column price: 100 → 120` style entries.
+
+## How it compares
+
+| | datadiff | [Graphtage](https://github.com/trailofbits/graphtage) | [dyff](https://github.com/homeport/dyff) | [difftastic](https://github.com/Wilfred/difftastic) |
+|---|---|---|---|---|
+| Approach | structural data diff | optimal tree edit distance | YAML/JSON data diff | syntax diff for source code |
+| Formats | JSON, YAML, CSV, TOML, XML | JSON, YAML, XML, CSV, … | YAML (JSON) | programming languages |
+| Arrays matched by key | yes (`--key id`) | heuristic, slow | no | n/a |
+| 1,000-object JSON (112 KB) | **0.07 s** | >10 min (timed out) | — | — |
+| Patch mode / conversion | yes | no | no | no |
+| CI risk policies | yes (`--fail-on`) | no | no | no |
+
+Measured on the same machine with datadiff 0.2.0 and Graphtage 0.3.1:
+datadiff finished a 5,000-object JSON diff in 0.1 s; Graphtage did not
+finish the 1,000-object file within a 10-minute timeout. The tools make
+different trade-offs (Graphtage finds *optimal* matches; datadiff matches
+structure predictably) — but for reviewing config changes, predictable and
+fast wins.
 
 ## Installation
 
