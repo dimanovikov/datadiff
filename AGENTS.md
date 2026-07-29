@@ -14,9 +14,10 @@
 - CI: GitHub Actions (`.github/workflows/ci.yml`) — build + test на
   ubuntu / windows / macos
 - Релизы: `.github/workflows/release.yml` — по тегу `v*` собирает бинарники
-  (linux x86_64/arm64, macos intel/arm, windows msvc) и выкладывает в
+  (linux x86_64/arm64, macos arm64, windows msvc) и выкладывает в
   GitHub Releases; `install.sh` / `install.ps1` качают бинарник из
-  последнего релиза
+  последнего релиза. Intel Mac не собираем (раннеры macos-13 выведены
+  из эксплуатации) — там `cargo install datadiff`
 
 ## Сборка и запуск
 

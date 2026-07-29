@@ -42,8 +42,8 @@ irm https://raw.githubusercontent.com/cloudroad-io/datadiff/main/install.ps1 | i
 
 **Manually** — grab the archive for your platform from
 [GitHub Releases](https://github.com/cloudroad-io/datadiff/releases/latest)
-(Linux x86_64/ARM, macOS Intel/Apple Silicon, Windows x86_64) and put
-`datadiff` on your PATH.
+(Linux x86_64/ARM, macOS Apple Silicon, Windows x86_64) and put
+`datadiff` on your PATH. Intel Macs: use `cargo install datadiff` instead.
 
 **With Rust installed**:
 
