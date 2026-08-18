@@ -51,6 +51,12 @@ fast wins.
 
 ## Installation
 
+**Homebrew** (macOS / Linux):
+
+```sh
+brew install cloudroad-io/datadiff/datadiff
+```
+
 **macOS / Linux** — one command, no compiler needed (installs to
 `~/.local/bin`):
 
@@ -219,6 +225,17 @@ $ datadiff old.yaml new.yaml --fail-on spec.replicas,*.image
 A pattern matches when it equals the path, is a dot-segment prefix of it
 (`spec` matches `spec.replicas`), or uses `*` globs (`*.image`). Changes
 that match nothing still print but exit 0.
+
+For GitHub Actions there is a ready-made wrapper —
+[cloudroad-io/datadiff-action](https://github.com/cloudroad-io/datadiff-action):
+
+```yaml
+- uses: cloudroad-io/datadiff-action@v1
+  with:
+    old: base/deploy/app.yaml
+    new: deploy/app.yaml
+    fail-on: spec.replicas,*.image
+```
 
 ### Output legend
 
