@@ -164,6 +164,49 @@ fn missing_file_exits_2() {
 }
 
 #[test]
+fn empty_old_file_reports_everything_added() {
+    let dir = tempfile_dir();
+    let a = write_temp(&dir, "a.json", "");
+    let b = write_temp(
+        &dir,
+        "b.json",
+        r#"{"replicas": 5, "spec": {"image": "app:1"}}"#,
+    );
+    let out = run(&[&a, &b], &[]);
+    assert_eq!(out.status.code(), Some(1));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(stdout.contains("+ replicas: 5"), "stdout: {stdout}");
+    assert!(stdout.contains("+ spec:"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("2 changes (2 added, 0 removed, 0 modified)"),
+        "stdout: {stdout}"
+    );
+}
+
+#[test]
+fn empty_new_file_reports_everything_removed() {
+    let dir = tempfile_dir();
+    let a = write_temp(&dir, "a.json", r#"{"replicas": 5}"#);
+    let b = write_temp(&dir, "b.json", "");
+    let out = run(&[&a, &b], &[]);
+    assert_eq!(out.status.code(), Some(1));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(stdout.contains("- replicas: 5"), "stdout: {stdout}");
+}
+
+#[test]
+fn dev_null_side_is_treated_as_missing() {
+    // git external diff passes /dev/null for added/deleted files
+    let dir = tempfile_dir();
+    let b = write_temp(&dir, "b.json", r#"{"replicas": 5}"#);
+    let dev_null = std::path::Path::new("/dev/null").to_path_buf();
+    let out = run(&[&dev_null, &b], &[]);
+    assert_eq!(out.status.code(), Some(1));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(stdout.contains("+ replicas: 5"), "stdout: {stdout}");
+}
+
+#[test]
 fn invalid_format_exits_2() {
     let dir = tempfile_dir();
     let a = write_temp(&dir, "a.json", "{not json");

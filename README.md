@@ -194,6 +194,8 @@ git config diff.datadiff.command 'f() { datadiff --exit-zero "$2" "$5"; }; f'
 
 `--exit-zero` is required: git treats a non-zero exit from the driver as a
 failure, while `datadiff` normally exits 1 when differences are found.
+Added and deleted files are handled: git passes `/dev/null` for the missing
+side, which `datadiff` treats as an empty document.
 
 ### Format conversion
 
