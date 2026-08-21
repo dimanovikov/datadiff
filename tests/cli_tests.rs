@@ -29,6 +29,30 @@ fn run(args: &[&std::path::Path], extra: &[&str]) -> Output {
     cmd.output().unwrap()
 }
 
+fn run_with_stdin(args: &[&std::path::Path], extra: &[&str], stdin: &str) -> Output {
+    let mut cmd = bin();
+    for a in args {
+        cmd.arg(a);
+    }
+    for e in extra {
+        cmd.arg(e);
+    }
+    cmd.arg("--no-color");
+    cmd.stdin(std::process::Stdio::piped());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+    let mut child = cmd.spawn().unwrap();
+    child
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(stdin.as_bytes())
+        .unwrap();
+    // Close stdin so the child sees EOF and can finish reading it.
+    drop(child.stdin.take());
+    child.wait_with_output().unwrap()
+}
+
 #[test]
 fn reordered_keys_is_no_change() {
     let dir = tempfile_dir();
@@ -201,6 +225,71 @@ fn dev_null_side_is_treated_as_missing() {
     let b = write_temp(&dir, "b.json", r#"{"replicas": 5}"#);
     let dev_null = std::path::Path::new("/dev/null").to_path_buf();
     let out = run(&[&dev_null, &b], &[]);
+    assert_eq!(out.status.code(), Some(1));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(stdout.contains("+ replicas: 5"), "stdout: {stdout}");
+}
+
+#[test]
+fn stdin_side_diffs_against_file() {
+    let dir = tempfile_dir();
+    let b = write_temp(&dir, "b.json", r#"{"replicas": 5, "name": "app"}"#);
+    let dash = std::path::Path::new("-").to_path_buf();
+    let out = run_with_stdin(&[&dash, &b], &["--format", "json"], r#"{"replicas": 3}"#);
+    assert_eq!(out.status.code(), Some(1));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(stdout.contains("~ replicas: 3 → 5"), "stdout: {stdout}");
+    assert!(stdout.contains("+ name: \"app\""), "stdout: {stdout}");
+}
+
+#[test]
+fn stdin_no_differences_exits_0() {
+    let dir = tempfile_dir();
+    let a = write_temp(&dir, "a.yaml", "replicas: 3\nname: app\n");
+    let dash = std::path::Path::new("-").to_path_buf();
+    // Key order differs from the file; semantically the same document.
+    let out = run_with_stdin(
+        &[&a, &dash],
+        &["--format", "yaml"],
+        "name: app\nreplicas: 3\n",
+    );
+    assert_eq!(out.status.code(), Some(0));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(stdout.contains("0 changes"), "stdout: {stdout}");
+}
+
+#[test]
+fn stdin_without_format_exits_2() {
+    let dir = tempfile_dir();
+    let b = write_temp(&dir, "b.json", "{}");
+    let dash = std::path::Path::new("-").to_path_buf();
+    let out = run_with_stdin(&[&dash, &b], &[], "{}");
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.contains("cannot detect format of stdin"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn both_sides_stdin_exits_2() {
+    let dash = std::path::Path::new("-").to_path_buf();
+    let out = run_with_stdin(&[&dash, &dash], &["--format", "json"], "{}");
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.contains("stdin can only be read once"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn empty_stdin_side_reports_everything_added() {
+    let dir = tempfile_dir();
+    let b = write_temp(&dir, "b.json", r#"{"replicas": 5}"#);
+    let dash = std::path::Path::new("-").to_path_buf();
+    let out = run_with_stdin(&[&dash, &b], &["--format", "json"], "");
     assert_eq!(out.status.code(), Some(1));
     let stdout = String::from_utf8(out.stdout).unwrap();
     assert!(stdout.contains("+ replicas: 5"), "stdout: {stdout}");

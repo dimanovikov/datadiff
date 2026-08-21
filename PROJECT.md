@@ -110,7 +110,8 @@ CLI-флаг > `.env` > дефолт.
 
 Ядро R1–R8 написано; из R9 реализованы `--output json`, `datadiff patch` и
 git diff-драйвер (`--exit-zero`); R10 закрыт целиком (XML + конвертация);
-добавлены risk policies для CI (`--fail-on`).
+добавлены risk policies для CI (`--fail-on`) и чтение одной из сторон
+из stdin (`-` вместо файла).
 
 | Требование | Статус |
 |---|---|
@@ -122,13 +123,13 @@ git diff-драйвер (`--exit-zero`); R10 закрыт целиком (XML + 
 | R6 примеры в README | Да |
 | R7 diff двух файлов | Да + examples |
 | R8 замена gron-велосипедам | Следствие R1–R7 |
-| R9 patch-утилита, git/vimdiff | `--output json` + `datadiff patch` + git diff-драйвер — да; vimdiff — roadmap |
+| R9 patch-утилита, git/vimdiff | `--output json` + `datadiff patch` + git diff-драйвер — да; git difftool / vim — рецепт в README |
 | R10 форматы | JSON/YAML/CSV/TOML/XML + конвертация (`datadiff convert`) — да |
 
 ## Roadmap
 
 Roadmap из исходного списка закрыт целиком. Открытые идеи на будущее:
-vimdiff-интеграция (R9), запись XML в `convert`, экранирование ключей
+запись XML в `convert`, `--output patch` (RFC 6902), экранирование ключей
 с `.`/`[` в путях патча.
 
 ## Лицензия

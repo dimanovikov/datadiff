@@ -6,10 +6,11 @@ mod policy;
 mod value;
 mod write;
 
+use std::io::Read as _;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use clap::Parser;
 
 use output::OutputFormat;
@@ -23,9 +24,9 @@ use parse::Format;
 #[derive(Parser)]
 #[command(name = "datadiff", version, about)]
 struct Cli {
-    /// Old (baseline) file.
+    /// Old (baseline) file, or `-` to read from stdin.
     old: Option<PathBuf>,
-    /// New file to compare against the baseline.
+    /// New file to compare against the baseline, or `-` to read from stdin.
     new: Option<PathBuf>,
 
     #[command(subcommand)]
@@ -92,11 +93,22 @@ fn run_diff(cli: &Cli) -> anyhow::Result<DiffOutcome> {
         .context("missing OLD and NEW file arguments (or use a subcommand like `patch`)")?;
     let new_path = cli.new.as_deref().context("missing NEW file argument")?;
 
+    let old_stdin = is_stdin(old_path);
+    let new_stdin = is_stdin(new_path);
+    if old_stdin && new_stdin {
+        bail!("both sides are '-', but stdin can only be read once");
+    }
+
     let format = match cli.format {
         Some(f) => f,
-        None => parse::detect_format(old_path)
-            .or_else(|_| parse::detect_format(new_path))
-            .context("format autodetection failed for both files")?,
+        None => {
+            if old_stdin || new_stdin {
+                bail!("cannot detect format of stdin; pass --format");
+            }
+            parse::detect_format(old_path)
+                .or_else(|_| parse::detect_format(new_path))
+                .context("format autodetection failed for both files")?
+        }
     };
 
     let old_value = read_and_parse(old_path, format)?;
@@ -187,19 +199,35 @@ fn run_convert(cli: &Cli, input: &Path, output: &Path) -> anyhow::Result<()> {
 
 /// Read and parse a file; `Ok(None)` means "no document here": the path is
 /// `/dev/null` (git's placeholder for the missing side of an added/deleted
-/// file) or the file is empty.
+/// file), the file is empty, or an empty stdin was passed as `-`.
 fn read_and_parse(path: &Path, format: Format) -> anyhow::Result<Option<value::Value>> {
     if path == Path::new("/dev/null") {
         return Ok(None);
     }
-    let text = std::fs::read_to_string(path)
-        .with_context(|| format!("cannot read file '{}'", path.display()))?;
+    let (text, source) = if is_stdin(path) {
+        let mut text = String::new();
+        std::io::stdin()
+            .read_to_string(&mut text)
+            .context("cannot read stdin")?;
+        (text, "stdin".to_string())
+    } else {
+        (
+            std::fs::read_to_string(path)
+                .with_context(|| format!("cannot read file '{}'", path.display()))?,
+            format!("'{}'", path.display()),
+        )
+    };
     if text.trim().is_empty() {
         return Ok(None);
     }
     parse::parse(&text, format)
         .map(Some)
-        .with_context(|| format!("cannot parse '{}'", path.display()))
+        .with_context(|| format!("cannot parse {source}"))
+}
+
+/// `-` as a file argument means "read this side from stdin".
+fn is_stdin(path: &Path) -> bool {
+    path == Path::new("-")
 }
 
 /// An empty container of the same kind as `other` (or Null for scalars).

@@ -92,6 +92,13 @@ datadiff <old> <new> [--key <field>] [--format <json|yaml|csv|toml|xml>]
 
 The format is autodetected from the file extension; `--format` overrides it.
 
+One side can be read from stdin by passing `-` instead of a file. Since
+stdin has no extension, `--format` is required:
+
+```sh
+$ kubectl get deploy -o yaml | datadiff - new.yaml --format yaml
+```
+
 ### Examples
 
 Kubernetes manifests with reordered keys and one real change:
@@ -196,6 +203,21 @@ git config diff.datadiff.command 'f() { datadiff --exit-zero "$2" "$5"; }; f'
 failure, while `datadiff` normally exits 1 when differences are found.
 Added and deleted files are handled: git passes `/dev/null` for the missing
 side, which `datadiff` treats as an empty document.
+
+### Use with git difftool / vim
+
+`git difftool` can hand both sides to `datadiff` instead of a side-by-side
+tool — useful when you want the semantic summary rather than a text diff:
+
+```sh
+git difftool --no-prompt --extcmd 'datadiff --exit-zero'
+```
+
+And to read the diff in vim (or pipe it anywhere else):
+
+```sh
+datadiff old.yaml new.yaml | vim -R -
+```
 
 ### Format conversion
 
