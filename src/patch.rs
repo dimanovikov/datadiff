@@ -12,7 +12,7 @@ use crate::value::Value;
 
 /// One path segment, parsed from strings like `users[id=4217].email`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Segment {
+pub(crate) enum Segment {
     Field(String),
     Index(usize),
     KeyLookup { key: String, value: String },
@@ -52,7 +52,7 @@ pub fn apply_patch(tree: &mut Value, patch: &serde_json::Value) -> anyhow::Resul
 }
 
 /// Parse a data path into segments. A bare `$` (or empty path) is the root.
-fn parse_path(path: &str) -> anyhow::Result<Vec<Segment>> {
+pub(crate) fn parse_path(path: &str) -> anyhow::Result<Vec<Segment>> {
     let mut segments = Vec::new();
     let mut rest = path;
     if let Some(stripped) = rest.strip_prefix('$') {
@@ -221,7 +221,7 @@ fn navigate_mut<'a>(
 }
 
 /// Does `item` carry the field `key` whose scalar path text equals `value`?
-fn key_matches(item: &Value, key: &str, value: &str) -> bool {
+pub(crate) fn key_matches(item: &Value, key: &str, value: &str) -> bool {
     let Value::Object(obj) = item else {
         return false;
     };

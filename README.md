@@ -87,7 +87,7 @@ cargo install --path .          # from a local checkout
 
 ```sh
 datadiff <old> <new> [--key <field>] [--format <json|yaml|csv|toml|xml>]
-         [--show-unchanged] [--no-color] [--output <text|json>]
+         [--show-unchanged] [--no-color] [--output <text|json|patch>]
 ```
 
 The format is autodetected from the file extension; `--format` overrides it.
@@ -146,6 +146,28 @@ cannot be resolved in the target file is an error (exit code 2) — nothing
 is skipped silently. Known limitation: object keys containing `.`, `[` or
 `]` cannot be patched, because such paths are not representable.
 
+For external tooling there is also `--output patch`, which emits the diff
+as a JSON Patch (RFC 6902) document that any json-patch implementation
+can apply:
+
+```sh
+$ datadiff old.yaml new.yaml --output patch
+[
+  {
+    "op": "replace",
+    "path": "/spec/replicas",
+    "value": 5
+  }
+]
+```
+
+Key-matched array paths (`users[id=4217].email`) are resolved to the
+numeric indices JSON Pointer requires, looked up in the old document;
+elements added by key use the RFC 6902 append syntax (`/users/-`).
+Removals from one array are ordered by descending index so applying them
+does not shift the remaining indices. The `patch` subcommand consumes the
+native `--output json` format, not RFC 6902.
+
 A JSON array of objects matched by key — pure reordering reports nothing:
 
 ```sh
@@ -155,7 +177,8 @@ $ datadiff users-old.json users-new.json --key id
 
 XML follows the same tree diff; attributes are reported under `@name` and
 element text under `$text` (quick-xml mapping), and the root element name
-is dropped:
+is dropped. The same mapping is used when writing XML in `convert`, so an
+XML → XML conversion round-trips (wrapped in `<root>`):
 
 ```sh
 $ datadiff examples/config-old.xml examples/config-new.xml
@@ -230,8 +253,10 @@ $ datadiff convert rows.json rows.csv
 ```
 
 Limits: TOML needs an object at the document root (and no nulls), CSV needs
-an array of flat objects, and writing XML is not supported. Such mismatches
-are reported as errors (exit code 2).
+an array of flat objects, and XML needs an object at the document root.
+Since parsing does not retain the XML root element name, written XML is
+always wrapped in `<root>`. Such mismatches are reported as errors (exit
+code 2).
 
 ### Risk policies for CI (`--fail-on`)
 

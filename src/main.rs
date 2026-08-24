@@ -140,6 +140,9 @@ fn run_diff(cli: &Cli) -> anyhow::Result<DiffOutcome> {
                 output::render_json(&changes, &summary, cli.show_unchanged)
             );
         }
+        OutputFormat::Patch => {
+            println!("{}", output::render_json_patch(&changes, &old_value));
+        }
     }
 
     let fail_on_hit = !cli.fail_on.is_empty()

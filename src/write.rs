@@ -7,7 +7,8 @@ use crate::value::Value;
 
 /// Render the tree in the given format. Not every tree fits every format:
 /// TOML needs an object at the root (and no nulls), CSV needs an array of
-/// flat objects, and XML writing is not supported at all.
+/// flat objects, and XML needs an object at the root (the root element is
+/// always named `root`, since parsing drops the original name).
 pub fn write(value: &Value, format: Format) -> anyhow::Result<String> {
     match format {
         Format::Json => Ok(serde_json::to_string_pretty(&value.to_serde_json())?),
@@ -16,10 +17,20 @@ pub fn write(value: &Value, format: Format) -> anyhow::Result<String> {
         }
         Format::Toml => write_toml(value),
         Format::Csv => write_csv(value),
-        Format::Xml => {
-            bail!("writing XML is not supported (the attribute/text mapping is lossy)")
-        }
+        Format::Xml => write_xml(value),
     }
+}
+
+/// Render the tree as XML via quick-xml's serde mapping — the inverse of
+/// parsing: keys starting with `@` become attributes, `$text` becomes
+/// element text, repeated elements come from arrays. The root element is
+/// named `root` because parsing does not retain the original name.
+fn write_xml(value: &Value) -> anyhow::Result<String> {
+    let Value::Object(_) = value else {
+        bail!("cannot write XML: the document root is not an object");
+    };
+    quick_xml::se::to_string_with_root("root", &value.to_serde_json())
+        .context("failed to write XML")
 }
 
 fn write_toml(value: &Value) -> anyhow::Result<String> {

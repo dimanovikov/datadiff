@@ -689,6 +689,150 @@ fn fail_on_env_variable() {
     assert_eq!(out.status.code(), Some(1));
 }
 
+#[test]
+fn patch_output_replaces_modified_value() {
+    let dir = tempfile_dir();
+    let a = write_temp(&dir, "a.yaml", "spec:\n  replicas: 3\n");
+    let b = write_temp(&dir, "b.yaml", "spec:\n  replicas: 5\n");
+    let out = run(&[&a, &b], &["--output", "patch"]);
+    assert_eq!(out.status.code(), Some(1));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let doc: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("invalid JSON: {e}\n{stdout}"));
+    let ops = doc.as_array().unwrap();
+    assert_eq!(
+        ops,
+        &vec![serde_json::json!({"op": "replace", "path": "/spec/replicas", "value": 5})],
+        "stdout: {stdout}"
+    );
+}
+
+#[test]
+fn patch_output_empty_diff_exits_0() {
+    let dir = tempfile_dir();
+    let a = write_temp(&dir, "a.json", r#"{"same": 1}"#);
+    let b = write_temp(&dir, "b.json", r#"{"same": 1}"#);
+    let out = run(&[&a, &b], &["--output", "patch"]);
+    assert_eq!(out.status.code(), Some(0));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let doc: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(doc.as_array().unwrap().len(), 0, "stdout: {stdout}");
+}
+
+#[test]
+fn patch_output_skips_unchanged_with_show_unchanged() {
+    let dir = tempfile_dir();
+    let a = write_temp(&dir, "a.json", r#"{"same": true, "diff": 1}"#);
+    let b = write_temp(&dir, "b.json", r#"{"same": true, "diff": 2}"#);
+    let out = run(&[&a, &b], &["--output", "patch", "--show-unchanged"]);
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let doc: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let ops = doc.as_array().unwrap();
+    assert_eq!(ops.len(), 1, "stdout: {stdout}");
+    assert_eq!(ops[0]["path"], "/diff");
+}
+
+#[test]
+fn patch_output_with_key_resolves_indices() {
+    let dir = tempfile_dir();
+    let a = write_temp(
+        &dir,
+        "a.json",
+        r#"{"users": [{"id": 1, "n": "a"}, {"id": 2, "n": "b"}, {"id": 3, "n": "c"}, {"id": 4, "n": "d"}]}"#,
+    );
+    let b = write_temp(
+        &dir,
+        "b.json",
+        r#"{"users": [{"id": 1, "n": "a2"}, {"id": 3, "n": "c"}, {"id": 5, "n": "e"}]}"#,
+    );
+    let out = run(&[&a, &b], &["--key", "id", "--output", "patch"]);
+    assert_eq!(out.status.code(), Some(1));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let doc: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("invalid JSON: {e}\n{stdout}"));
+    let ops = doc.as_array().unwrap();
+    assert_eq!(
+        ops,
+        &vec![
+            // Key lookups resolve to old-tree indices; replaces first.
+            serde_json::json!({"op": "replace", "path": "/users/0/n", "value": "a2"}),
+            // Removals of one array go in descending index order, so
+            // applying them does not shift the remaining indices.
+            serde_json::json!({"op": "remove", "path": "/users/3"}),
+            serde_json::json!({"op": "remove", "path": "/users/1"}),
+            // A keyed element absent in the old tree appends via `-`.
+            serde_json::json!({"op": "add", "path": "/users/-", "value": {"id": 5, "n": "e"}}),
+        ],
+        "stdout: {stdout}"
+    );
+}
+
+#[test]
+fn convert_yaml_to_xml() {
+    let dir = tempfile_dir();
+    let a = write_temp(&dir, "a.yaml", "spec:\n  replicas: 3\n  name: app\n");
+    let out_path = dir.join("out.xml");
+    let out = bin()
+        .arg("convert")
+        .arg(&a)
+        .arg(&out_path)
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "stderr: {:?}", out.stderr);
+    let xml = std::fs::read_to_string(&out_path).unwrap();
+    // The root element name is not retained by parsing; it is always `root`.
+    assert!(xml.contains("<root>"), "xml: {xml}");
+    assert!(xml.contains("<replicas>3</replicas>"), "xml: {xml}");
+}
+
+#[test]
+fn convert_xml_round_trip() {
+    let dir = tempfile_dir();
+    let a = write_temp(
+        &dir,
+        "a.xml",
+        r#"<server><port>8080</port><tls enabled="false" version="1.2"/></server>"#,
+    );
+    let out_path = dir.join("out.xml");
+    let out = bin()
+        .arg("convert")
+        .arg(&a)
+        .arg(&out_path)
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "stderr: {:?}", out.stderr);
+    let xml = std::fs::read_to_string(&out_path).unwrap();
+    // Attributes survive the round trip via the `@name` mapping.
+    assert!(xml.contains(r#"enabled="false""#), "xml: {xml}");
+    // The written file diffs clean against the original.
+    let check = run(&[&a, &out_path], &[]);
+    assert_eq!(
+        check.status.code(),
+        Some(0),
+        "stdout: {:?}",
+        String::from_utf8(check.stdout)
+    );
+}
+
+#[test]
+fn convert_non_object_root_to_xml_exits_2() {
+    let dir = tempfile_dir();
+    let a = write_temp(&dir, "a.json", r#"[1, 2, 3]"#);
+    let out_path = dir.join("out.xml");
+    let out = bin()
+        .arg("convert")
+        .arg(&a)
+        .arg(&out_path)
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.contains("the document root is not an object"),
+        "stderr: {stderr}"
+    );
+}
+
 mod datadiff_test_support {
     pub fn tempfile_dir() -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
