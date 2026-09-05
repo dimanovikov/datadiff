@@ -18,8 +18,8 @@
   GitHub Releases; `install.sh` / `install.ps1` качают бинарник из
   последнего релиза. Intel Mac не собираем (раннеры macos-13 выведены
   из эксплуатации) — там `cargo install datadiff`
-- Соседние репозитории: `cloudroad-io/datadiff-action` (GitHub Action
-  для CI-гейтов, floating-тег `v1`) и `cloudroad-io/homebrew-datadiff`
+- Соседние репозитории: `dimanovikov/datadiff-action` (GitHub Action
+  для CI-гейтов, floating-тег `v1`) и `dimanovikov/homebrew-datadiff`
   (Homebrew tap). При новом релизе datadiff обновить sha256 в формуле
   и при необходимости дефолтную версию в Action
 

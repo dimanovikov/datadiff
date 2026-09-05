@@ -1,8 +1,8 @@
 # datadiff
 
-[![CI](https://github.com/cloudroad-io/datadiff/actions/workflows/ci.yml/badge.svg)](https://github.com/cloudroad-io/datadiff/actions/workflows/ci.yml)
+[![CI](https://github.com/dimanovikov/datadiff/actions/workflows/ci.yml/badge.svg)](https://github.com/dimanovikov/datadiff/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/datadiff.svg)](https://crates.io/crates/datadiff)
-[![GitHub release](https://img.shields.io/github/v/release/cloudroad-io/datadiff)](https://github.com/cloudroad-io/datadiff/releases/latest)
+[![GitHub release](https://img.shields.io/github/v/release/dimanovikov/datadiff)](https://github.com/dimanovikov/datadiff/releases/latest)
 [![license](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
 
 Semantic diff for structured data files — **JSON, YAML, CSV, TOML, XML**.
@@ -54,25 +54,25 @@ fast wins.
 **Homebrew** (macOS / Linux):
 
 ```sh
-brew install cloudroad-io/datadiff/datadiff
+brew install dimanovikov/datadiff/datadiff
 ```
 
 **macOS / Linux** — one command, no compiler needed (installs to
 `~/.local/bin`):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/cloudroad-io/datadiff/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/dimanovikov/datadiff/main/install.sh | sh
 ```
 
 **Windows** — in PowerShell (installs to `%LOCALAPPDATA%\Programs\datadiff`
 and adds it to the user PATH):
 
 ```powershell
-irm https://raw.githubusercontent.com/cloudroad-io/datadiff/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/dimanovikov/datadiff/main/install.ps1 | iex
 ```
 
 **Manually** — grab the archive for your platform from
-[GitHub Releases](https://github.com/cloudroad-io/datadiff/releases/latest)
+[GitHub Releases](https://github.com/dimanovikov/datadiff/releases/latest)
 (Linux x86_64/ARM, macOS Apple Silicon, Windows x86_64) and put
 `datadiff` on your PATH. Intel Macs: use `cargo install datadiff` instead.
 
@@ -276,10 +276,10 @@ A pattern matches when it equals the path, is a dot-segment prefix of it
 that match nothing still print but exit 0.
 
 For GitHub Actions there is a ready-made wrapper —
-[cloudroad-io/datadiff-action](https://github.com/cloudroad-io/datadiff-action):
+[dimanovikov/datadiff-action](https://github.com/dimanovikov/datadiff-action):
 
 ```yaml
-- uses: cloudroad-io/datadiff-action@v1
+- uses: dimanovikov/datadiff-action@v1
   with:
     old: base/deploy/app.yaml
     new: deploy/app.yaml

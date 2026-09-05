@@ -2,13 +2,13 @@
 # no compiler needed.
 #
 # Usage (PowerShell):
-#   irm https://raw.githubusercontent.com/cloudroad-io/datadiff/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/dimanovikov/datadiff/main/install.ps1 | iex
 #
 # Optional: $env:DATADIFF_INSTALL_DIR = 'C:\custom\dir' before running
 # (default: %LOCALAPPDATA%\Programs\datadiff)
 $ErrorActionPreference = 'Stop'
 
-$Repo = 'cloudroad-io/datadiff'
+$Repo = 'dimanovikov/datadiff'
 $InstallDir = if ($env:DATADIFF_INSTALL_DIR) {
     $env:DATADIFF_INSTALL_DIR
 } else {

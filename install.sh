@@ -3,12 +3,12 @@
 # binary for the current platform — no compiler needed.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/cloudroad-io/datadiff/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/dimanovikov/datadiff/main/install.sh | sh
 #
 # Optional: DATADIFF_INSTALL_DIR=/custom/dir (default: ~/.local/bin)
 set -eu
 
-REPO="cloudroad-io/datadiff"
+REPO="dimanovikov/datadiff"
 INSTALL_DIR="${DATADIFF_INSTALL_DIR:-$HOME/.local/bin}"
 
 # --- detect platform -> release target triple ---
