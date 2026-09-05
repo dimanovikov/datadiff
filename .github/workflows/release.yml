@@ -1,7 +1,9 @@
 name: Release
 
 # Push a version tag to build and publish release binaries:
-#   git tag v0.2.0 && git push origin v0.2.0
+#   git tag v0.3.1 && git push origin v0.3.1
+# This builds the binaries, attaches them to the GitHub Release, and then
+# publishes the crate to crates.io.
 on:
   push:
     tags: ["v*"]
@@ -52,3 +54,38 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: datadiff-${{ github.ref_name }}-${{ matrix.target }}.*
+
+  # Publish to crates.io via OIDC trusted publishing — no API token in secrets.
+  # Requires a one-time crates.io-side config: the crate's Settings -> Trusted
+  # Publishing -> add owner `dimanovikov`, repo `datadiff`, workflow `release.yml`.
+  # Runs only after the binaries built, so a broken build never yields a crates.io
+  # version (published versions can be yanked, never deleted).
+  publish-crate:
+    name: Publish to crates.io
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required to mint the OIDC token
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Verify the tag matches Cargo.toml
+        run: |
+          manifest=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$manifest" != "$tag" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match Cargo.toml version $manifest"
+            exit 1
+          fi
+          echo "publishing datadiff $manifest"
+
+      - name: Authenticate with crates.io
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish
+        run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
