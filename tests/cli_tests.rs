@@ -42,14 +42,18 @@ fn run_with_stdin(args: &[&std::path::Path], extra: &[&str], stdin: &str) -> Out
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
     let mut child = cmd.spawn().unwrap();
-    child
-        .stdin
-        .as_mut()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
-    // Close stdin so the child sees EOF and can finish reading it.
-    drop(child.stdin.take());
+    {
+        let mut sin = child.stdin.take().unwrap();
+        // A usage error exits 2 without reading stdin, closing the pipe while we
+        // are still writing to it. A broken pipe here is the expected outcome,
+        // not a test failure.
+        match sin.write_all(stdin.as_bytes()) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {}
+            Err(e) => panic!("writing to child stdin failed: {e}"),
+        }
+        // Dropping `sin` closes stdin so the child sees EOF and can finish reading.
+    }
     child.wait_with_output().unwrap()
 }
 
