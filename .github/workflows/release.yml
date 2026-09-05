@@ -7,12 +7,20 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Re-sync the Homebrew formula and the Scoop manifest with a release that
+  # already exists, without cutting a new one.
+  workflow_dispatch:
+    inputs:
+      resync:
+        description: "Existing tag to re-sync packages with, e.g. v0.3.1"
+        required: true
 
 permissions:
   contents: write
 
 jobs:
   build:
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -62,6 +70,7 @@ jobs:
   # version (published versions can be yanked, never deleted).
   publish-crate:
     name: Publish to crates.io
+    if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -89,3 +98,84 @@ jobs:
         run: cargo publish --locked
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  # Homebrew and Scoop were updated by hand, which is how the tap drifted a whole
+  # version behind. Both now follow the release automatically.
+  update-packages:
+    name: Update Homebrew tap and Scoop bucket
+    needs: build
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.build.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the packages token
+        env:
+          TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::PACKAGES_TOKEN is unset. Create a fine-grained PAT with" \
+                 "Contents: read and write on homebrew-datadiff and scoop-bucket," \
+                 "then add it as a repository secret."
+            exit 1
+          fi
+
+      - name: Collect the release checksums
+        id: sums
+        run: |
+          tag="${{ github.event.inputs.resync || github.ref_name }}"
+          version="${tag#v}"
+          base="https://github.com/${{ github.repository }}"
+          fetch() { curl -fsSL --retry 5 --retry-all-errors "$1" | sha256sum | cut -d" " -f1; }
+
+          sums="{}"
+          for f in \
+            "datadiff-v$version-aarch64-apple-darwin.tar.gz" \
+            "datadiff-v$version-x86_64-unknown-linux-gnu.tar.gz" \
+            "datadiff-v$version-aarch64-unknown-linux-gnu.tar.gz" \
+            "datadiff-v$version-x86_64-pc-windows-msvc.zip"; do
+            sums=$(jq -c --arg k "$f" --arg v "$(fetch "$base/releases/download/v$version/$f")" \
+              '.[$k]=$v' <<<"$sums")
+          done
+          # Intel Macs build from source, so the tag tarball needs a checksum too.
+          sums=$(jq -c --arg k "v$version.tar.gz" --arg v "$(fetch "$base/archive/refs/tags/v$version.tar.gz")" \
+            '.[$k]=$v' <<<"$sums")
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "checksums=$sums" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/homebrew-datadiff
+          token: ${{ secrets.PACKAGES_TOKEN }}
+          path: tap
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/scoop-bucket
+          token: ${{ secrets.PACKAGES_TOKEN }}
+          path: bucket
+
+      - name: Rewrite the formula and the manifest
+        env:
+          CHECKSUMS: ${{ steps.sums.outputs.checksums }}
+          VERSION: ${{ steps.sums.outputs.version }}
+        run: |
+          python3 .github/scripts/bump_packages.py "$VERSION" tap/Formula/datadiff.rb
+          python3 .github/scripts/bump_packages.py "$VERSION" bucket/datadiff.json
+
+      - name: Commit and push
+        env:
+          VERSION: ${{ steps.sums.outputs.version }}
+        run: |
+          for dir in tap bucket; do
+            git -C "$dir" config user.name "github-actions[bot]"
+            git -C "$dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C "$dir" add -A
+            if git -C "$dir" diff --quiet --cached; then
+              echo "$dir is already at $VERSION"
+              continue
+            fi
+            git -C "$dir" commit -m "datadiff $VERSION"
+            git -C "$dir" push
+          done
