@@ -179,3 +179,41 @@ jobs:
             git -C "$dir" commit -m "datadiff $VERSION"
             git -C "$dir" push
           done
+
+  # Off until the repository variable NPM_PUBLISH is set to "true", because npm
+  # only accepts a trusted publisher once the package exists — the first publish
+  # is manual, and a job that ran before that would fail every release.
+  publish-npm:
+    name: Publish to npm
+    needs: build
+    if: github.event_name == 'push' && vars.NPM_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required to mint the OIDC token
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      # Trusted publishing needs npm 11.5.1+; setup-node still ships npm 10.
+      - name: Update npm
+        run: npm install --global npm@latest
+
+      - name: Verify the tag matches package.json
+        working-directory: packaging/npm
+        run: |
+          manifest=$(node -p "require('./package.json').version")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$manifest" != "$tag" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match packaging/npm/package.json version $manifest"
+            exit 1
+          fi
+          echo "publishing datadiff-cli $manifest"
+
+      - name: Publish
+        working-directory: packaging/npm
+        run: npm publish
