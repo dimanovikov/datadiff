@@ -1,6 +1,6 @@
 pkgbase = datadiff
 	pkgdesc = Semantic diff for structured data files (JSON, YAML, CSV, TOML, XML)
-	pkgver = 0.3.1
+	pkgver = 0.3.2
 	pkgrel = 1
 	url = https://github.com/dimanovikov/datadiff
 	arch = x86_64
@@ -8,7 +8,7 @@ pkgbase = datadiff
 	license = MIT
 	license = Apache-2.0
 	makedepends = cargo
-	source = datadiff-0.3.1.tar.gz::https://github.com/dimanovikov/datadiff/archive/refs/tags/v0.3.1.tar.gz
+	source = datadiff-0.3.2.tar.gz::https://github.com/dimanovikov/datadiff/archive/refs/tags/v0.3.2.tar.gz
 	sha256sums = 0e5e05f375b313043fcea3a1dff3b2dbed414a46c81c9026ce81619897f4bca9
 
 pkgname = datadiff

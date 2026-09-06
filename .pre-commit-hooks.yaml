@@ -2,7 +2,7 @@
 # on every commit. Add to your repo's `.pre-commit-config.yaml`:
 #
 #   - repo: https://github.com/dimanovikov/datadiff
-#     rev: v0.3.1                          # pin to a release tag
+#     rev: v0.3.2                          # pin to a release tag
 #     hooks:
 #       - id: datadiff
 #         args: ["--fail-on=spec.replicas,*.image"]

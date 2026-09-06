@@ -1,6 +1,6 @@
 # Maintainer: Dima Novikov <mitia@cloudroad.io>
 pkgname=datadiff
-pkgver=0.3.1
+pkgver=0.3.2
 pkgrel=1
 pkgdesc="Semantic diff for structured data files (JSON, YAML, CSV, TOML, XML)"
 arch=('x86_64' 'aarch64')
