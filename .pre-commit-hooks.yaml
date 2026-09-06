@@ -1,0 +1,19 @@
+# Declares `datadiff` as a pre-commit hook so any repo can gate config changes
+# on every commit. Add to your repo's `.pre-commit-config.yaml`:
+#
+#   - repo: https://github.com/dimanovikov/datadiff
+#     rev: v0.3.1                          # pin to a release tag
+#     hooks:
+#       - id: datadiff
+#         args: ["--fail-on=spec.replicas,*.image"]
+#
+# Options must use the --opt=value form; see hooks/datadiff-staged.sh. Without
+# --fail-on the hook reports the semantic diff without blocking the commit.
+
+- id: datadiff
+  name: datadiff
+  description: Semantic diff of staged JSON, YAML, CSV, TOML and XML against HEAD, with an optional risk policy.
+  entry: hooks/datadiff-staged.sh
+  language: rust
+  files: \.(json|ya?ml|csv|toml|xml)$
+  pass_filenames: true
