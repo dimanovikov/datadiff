@@ -46,7 +46,7 @@ struct Cli {
     show_unchanged: bool,
 
     /// Disable colored output.
-    #[arg(long, env = "DATADIFF_NO_COLOR")]
+    #[arg(long, env = "DATADIFF_NO_COLOR", global = true)]
     no_color: bool,
 
     /// Output format: human-readable text or machine-readable JSON.
@@ -76,6 +76,32 @@ enum Sub {
         /// Patch document in the `--output json` format.
         patch: PathBuf,
     },
+    /// Diff two versions of a file using git's external-diff calling
+    /// convention. Configure with:
+    ///   git config diff.datadiff.command "datadiff git-diff"
+    GitDiff {
+        /// The path as git knows it; the format is taken from this name.
+        path: PathBuf,
+        /// Old version, staged by git in a temporary file.
+        old_file: PathBuf,
+        /// Blob hash of the old version (unused).
+        old_hex: String,
+        /// File mode of the old version (unused).
+        old_mode: String,
+        /// New version, staged by git in a temporary file.
+        new_file: PathBuf,
+        /// Blob hash of the new version (unused).
+        new_hex: String,
+        /// File mode of the new version (unused).
+        new_mode: String,
+    },
+    /// Print a file in canonical form on stdout: keys sorted, formatting
+    /// uniform. Configure as git's textconv with:
+    ///   git config diff.datadiff.textconv "datadiff normalize"
+    Normalize {
+        /// File to canonicalize.
+        file: PathBuf,
+    },
     /// Convert a file between supported formats (e.g. YAML to JSON). The
     /// output format is taken from the output file's extension.
     Convert {
@@ -92,7 +118,18 @@ fn run_diff(cli: &Cli) -> anyhow::Result<DiffOutcome> {
         .as_deref()
         .context("missing OLD and NEW file arguments (or use a subcommand like `patch`)")?;
     let new_path = cli.new.as_deref().context("missing NEW file argument")?;
+    diff_files(cli, old_path, new_path, None)
+}
 
+/// Diff two files. `named_as` is the path the format should be detected from
+/// when it differs from the files being read — git stages the two versions in
+/// temporary files whose names need not carry the original extension.
+fn diff_files(
+    cli: &Cli,
+    old_path: &Path,
+    new_path: &Path,
+    named_as: Option<&Path>,
+) -> anyhow::Result<DiffOutcome> {
     let old_stdin = is_stdin(old_path);
     let new_stdin = is_stdin(new_path);
     if old_stdin && new_stdin {
@@ -105,7 +142,10 @@ fn run_diff(cli: &Cli) -> anyhow::Result<DiffOutcome> {
             if old_stdin || new_stdin {
                 bail!("cannot detect format of stdin; pass --format");
             }
-            parse::detect_format(old_path)
+            named_as
+                .map(parse::detect_format)
+                .unwrap_or_else(|| Err(anyhow::anyhow!("no name given")))
+                .or_else(|_| parse::detect_format(old_path))
                 .or_else(|_| parse::detect_format(new_path))
                 .context("format autodetection failed for both files")?
         }
@@ -162,6 +202,30 @@ fn run_diff(cli: &Cli) -> anyhow::Result<DiffOutcome> {
 struct DiffOutcome {
     summary: diff::Summary,
     fail_on_hit: bool,
+}
+
+/// git prints nothing of its own around an external driver's output, so the
+/// driver names the file itself. The exit code is always success: git reads a
+/// non-zero status from a diff driver as the whole command having failed.
+fn run_git_diff(cli: &Cli, path: &Path, old_file: &Path, new_file: &Path) -> anyhow::Result<()> {
+    println!("{}", path.display());
+    diff_files(cli, old_file, new_file, Some(path))?;
+    Ok(())
+}
+
+/// Canonical form for git's textconv: the same document always renders the
+/// same bytes, so reordered keys and reformatting produce no diff at all.
+/// Output stays in the source format — git line-diffs two of these, and
+/// rendering YAML as JSON would make every YAML diff unreadable.
+fn run_normalize(cli: &Cli, file: &Path) -> anyhow::Result<()> {
+    let format = match cli.format {
+        Some(f) => f,
+        None => parse::detect_format(file).context("format autodetection failed")?,
+    };
+    if let Some(tree) = read_and_parse(file, format)? {
+        println!("{}", write::write(&tree, format)?);
+    }
+    Ok(())
 }
 
 fn run_patch(cli: &Cli, file: &Path, patch_path: &Path) -> anyhow::Result<()> {
@@ -252,6 +316,13 @@ fn main() -> ExitCode {
     let result = match &cli.command {
         Some(Sub::Patch { file, patch }) => run_patch(&cli, file, patch).map(|_| 0),
         Some(Sub::Convert { input, output }) => run_convert(&cli, input, output).map(|_| 0),
+        Some(Sub::GitDiff {
+            path,
+            old_file,
+            new_file,
+            ..
+        }) => run_git_diff(&cli, path, old_file, new_file).map(|_| 0),
+        Some(Sub::Normalize { file }) => run_normalize(&cli, file).map(|_| 0),
         None => run_diff(&cli).map(|outcome| {
             let policy_passed = !cli.fail_on.is_empty() && !outcome.fail_on_hit;
             if outcome.summary.total() == 0 || cli.exit_zero || policy_passed {

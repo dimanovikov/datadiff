@@ -49,6 +49,86 @@ different trade-offs (Graphtage finds *optimal* matches; datadiff matches
 structure predictably) — but for reviewing config changes, predictable and
 fast wins.
 
+## Inside `git diff`
+
+The point of datadiff is not to be another command you remember to run. Set it
+up once and `git diff` tells the truth about config files, with no change to
+how you work.
+
+Here is the same commit three ways. Someone changed the replica count; a
+formatter then reordered the file.
+
+**What `git diff` shows you today** — six changed lines, and the one that
+matters is buried:
+
+```diff
+-apiVersion: apps/v1
+ spec:
+-  replicas: 3
+   template:
+     image: app:1.0
++  replicas: 5
++
++apiVersion: apps/v1
+```
+
+**What it shows with datadiff wired in:**
+
+```
+$ git diff deploy.yaml
+deploy.yaml
+~ spec.replicas: 3 → 5
+1 changes (0 added, 0 removed, 1 modified)
+```
+
+**And in history, where a line diff is still what you want — just without the
+noise:**
+
+```diff
+$ git log -p deploy.yaml
+ apiVersion: apps/v1
+ spec:
+-  replicas: 3
++  replicas: 5
+   template:
+     image: app:1.0
+```
+
+The reordering is gone because both sides are canonicalised before comparison.
+
+### Setup
+
+```sh
+git config diff.datadiff.command  "datadiff git-diff"
+git config diff.datadiff.textconv "datadiff normalize"
+
+printf '*.json diff=datadiff\n*.yaml diff=datadiff\n' >> .gitattributes
+```
+
+Add `--global` to the `git config` lines to apply it everywhere, and commit
+`.gitattributes` to share it with the repository.
+
+### What runs where
+
+You never choose at the command line — git picks by what you asked for.
+
+| Command | What runs | Why |
+|---|---|---|
+| `git diff` | `git-diff` driver | "what changed right now" wants data paths |
+| `git log -p`, `git show`, `git blame` | `normalize` textconv | history reads better as a line diff, minus the noise |
+
+Both halves are independent: configure only `command` for a semantic
+`git diff`, or only `textconv` for clean output everywhere including pagers
+like [delta](https://github.com/dandavison/delta).
+
+To step around them: `git diff --no-ext-diff` gives a line diff of the
+canonical form, and adding `--no-textconv` shows the file exactly as it sits
+on disk.
+
+Added and deleted files work too — git passes `/dev/null` for the missing
+side, and datadiff reports every entry as added or removed rather than as one
+opaque change.
+
 ## Installation
 
 **Homebrew** (macOS / Linux):
