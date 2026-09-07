@@ -2,3 +2,8 @@ target/
 **/*.rs.bk
 Cargo.lock.bak
 .env
+
+# macOS Finder artefacts. A custom folder icon is stored in a file whose
+# name ends in a carriage return, which Windows cannot check out at all.
+.DS_Store
+Icon?
