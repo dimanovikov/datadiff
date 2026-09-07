@@ -9,6 +9,6 @@ pkgbase = datadiff
 	license = Apache-2.0
 	makedepends = cargo
 	source = datadiff-0.4.0.tar.gz::https://github.com/dimanovikov/datadiff/archive/refs/tags/v0.4.0.tar.gz
-	sha256sums = 0f015efcd8fd5d6fd4b0302217d32efdf4ea679ebc87559bf2d233716af4e693
+	sha256sums = 4e30ae8b6270c353ac99ba62004ce88ad7da46b392b7d4c3f8841072f624c1f6
 
 pkgname = datadiff
