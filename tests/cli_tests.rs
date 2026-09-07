@@ -1055,6 +1055,22 @@ fn normalize_passes_an_unknown_format_through_unchanged() {
     assert_eq!(String::from_utf8(out.stdout).unwrap(), raw);
 }
 
+#[test]
+fn normalize_passes_a_non_utf8_file_through_unchanged() {
+    // Reading the fallback as text silently yields an empty string for a file
+    // in any other encoding, and two empty sides make git report no change at
+    // all — the file goes invisible in `git log -p`. Copy bytes instead.
+    let dir = tempfile_dir();
+    let raw: &[u8] = b"{\"name\": \"\xcf\xf0\xe8\xe2\xe5\xf2\", \"n\": 1}\n";
+    let path = dir.join("cp1251.json");
+    std::fs::write(&path, raw).unwrap();
+
+    let out = run_raw(&["normalize", &path.display().to_string()]);
+
+    assert_eq!(out.status.code(), Some(0));
+    assert_eq!(out.stdout, raw);
+}
+
 mod datadiff_test_support {
     pub fn tempfile_dir() -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(

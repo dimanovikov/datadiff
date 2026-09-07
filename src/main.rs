@@ -241,7 +241,14 @@ fn run_normalize(cli: &Cli, file: &Path) -> anyhow::Result<()> {
         // git line-diffs whatever textconv prints. Passing an unreadable file
         // through unchanged degrades to the diff the user would have seen
         // without datadiff, where failing would break `git log -p` outright.
-        Err(_) => print!("{}", std::fs::read_to_string(file).unwrap_or_default()),
+        // Copy bytes rather than text: a file in another encoding is not valid
+        // UTF-8, and reading it as a string would quietly yield nothing, which
+        // git reads as "no change" and hides the file entirely.
+        Err(_) => {
+            use std::io::Write as _;
+            let raw = std::fs::read(file).unwrap_or_default();
+            std::io::stdout().write_all(&raw).ok();
+        }
     }
     Ok(())
 }
