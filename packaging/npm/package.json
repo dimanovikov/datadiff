@@ -1,6 +1,6 @@
 {
   "name": "datadiff-cli",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Semantic diff for structured data files (JSON, YAML, CSV, TOML, XML) — key order is ignored, changes are reported as data paths",
   "keywords": ["diff", "json", "yaml", "csv", "toml", "xml", "semantic-diff", "cli", "kubernetes"],
   "homepage": "https://github.com/dimanovikov/datadiff",
