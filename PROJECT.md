@@ -112,7 +112,7 @@ CLI-флаг > `.env` > дефолт.
 ## Статус реализации (честно)
 
 Ядро R1–R8 написано; из R9 реализованы `--output json`, `datadiff patch`,
-`--output patch` (RFC 6902) и git diff-драйвер (`--exit-zero`); R10 закрыт
+`--output patch` (RFC 6902) и git-интеграция (`git-diff` + `normalize`); R10 закрыт
 целиком (XML, включая запись, + конвертация); добавлены risk policies для
 CI (`--fail-on`) и чтение одной из сторон из stdin (`-` вместо файла).
 
@@ -126,7 +126,7 @@ CI (`--fail-on`) и чтение одной из сторон из stdin (`-` в
 | R6 примеры в README | Да |
 | R7 diff двух файлов | Да + examples |
 | R8 замена gron-велосипедам | Следствие R1–R7 |
-| R9 patch-утилита, git/vimdiff | `--output json` + `datadiff patch` + git diff-драйвер — да; git difftool / vim — рецепт в README |
+| R9 patch-утилита, git/vimdiff | `--output json` + `datadiff patch` + `git-diff`/`normalize` драйверы — да; git difftool / vim — рецепт в README |
 | R10 форматы | JSON/YAML/CSV/TOML/XML + конвертация (`datadiff convert`) — да |
 
 ## Roadmap

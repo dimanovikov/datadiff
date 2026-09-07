@@ -299,25 +299,21 @@ Priority: CLI flag > `.env` > built-in default.
 
 ### Use as a git diff driver
 
-To make `git diff` show semantic changes for structured files, register
-`datadiff` as an external diff driver. Git calls the driver with seven
-arguments, so the command picks out the two temp files (`$2` and `$5`):
+See [Inside `git diff`](#inside-git-diff) — `datadiff git-diff` takes git's
+calling convention directly.
+
+A shell function picking the two temp files out of git's seven arguments also
+works, and is what this section used to recommend:
 
 ```sh
 git config diff.datadiff.command 'f() { datadiff --exit-zero "$2" "$5"; }; f'
 ```
 
-```gitattributes
-# .gitattributes
-*.json diff=datadiff
-*.yaml diff=datadiff
-*.yml  diff=datadiff
-```
-
-`--exit-zero` is required: git treats a non-zero exit from the driver as a
-failure, while `datadiff` normally exits 1 when differences are found.
-Added and deleted files are handled: git passes `/dev/null` for the missing
-side, which `datadiff` treats as an empty document.
+Prefer the subcommand. The shim cannot name the file it is diffing, which
+makes a multi-file diff unreadable; it detects the format from git's temporary
+files rather than from the real path; a file that is invalid mid-edit aborts
+the whole diff instead of being skipped; and the function syntax needs a POSIX
+shell, so it does not work from `cmd.exe`.
 
 ### Use with git difftool / vim
 
