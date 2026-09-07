@@ -209,7 +209,14 @@ struct DiffOutcome {
 /// non-zero status from a diff driver as the whole command having failed.
 fn run_git_diff(cli: &Cli, path: &Path, old_file: &Path, new_file: &Path) -> anyhow::Result<()> {
     println!("{}", path.display());
-    diff_files(cli, old_file, new_file, Some(path))?;
+    // A file git routes here may not be structured data at all, and one being
+    // edited is routinely invalid for a while. Reporting that as a failure
+    // makes git abort the entire diff and hide every file after this one, so
+    // an unreadable side degrades to a note instead.
+    if let Err(err) = diff_files(cli, old_file, new_file, Some(path)) {
+        println!("  no semantic diff: {err:#}");
+        println!("  run `git diff --no-ext-diff` to see this file as plain text");
+    }
     Ok(())
 }
 
@@ -218,12 +225,23 @@ fn run_git_diff(cli: &Cli, path: &Path, old_file: &Path, new_file: &Path) -> any
 /// Output stays in the source format — git line-diffs two of these, and
 /// rendering YAML as JSON would make every YAML diff unreadable.
 fn run_normalize(cli: &Cli, file: &Path) -> anyhow::Result<()> {
-    let format = match cli.format {
-        Some(f) => f,
-        None => parse::detect_format(file).context("format autodetection failed")?,
-    };
-    if let Some(tree) = read_and_parse(file, format)? {
-        println!("{}", write::write(&tree, format)?);
+    let canonical = cli
+        .format
+        .map(Ok)
+        .unwrap_or_else(|| parse::detect_format(file))
+        .and_then(|format| Ok((read_and_parse(file, format)?, format)))
+        .and_then(|(tree, format)| match tree {
+            Some(tree) => Ok(Some(format!("{}\n", write::write(&tree, format)?))),
+            None => Ok(None),
+        });
+
+    match canonical {
+        Ok(Some(text)) => print!("{text}"),
+        Ok(None) => {} // empty or absent: nothing to canonicalise
+        // git line-diffs whatever textconv prints. Passing an unreadable file
+        // through unchanged degrades to the diff the user would have seen
+        // without datadiff, where failing would break `git log -p` outright.
+        Err(_) => print!("{}", std::fs::read_to_string(file).unwrap_or_default()),
     }
     Ok(())
 }

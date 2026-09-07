@@ -994,6 +994,67 @@ fn normalize_of_an_empty_file_prints_nothing() {
     assert!(String::from_utf8(out.stdout).unwrap().trim().is_empty());
 }
 
+#[test]
+fn git_diff_survives_an_unparseable_file() {
+    // A config is routinely invalid mid-edit. A diff driver that exits
+    // non-zero makes git abort the whole diff ("external diff died"), hiding
+    // every remaining file, so a parse failure has to stay a success.
+    let dir = tempfile_dir();
+    let old = write_temp(&dir, "old.json", r#"{"replicas": 3}"#);
+    let new = write_temp(&dir, "new.json", r#"{"replicas": "#);
+
+    let seven = git_seven("deploy.json", &old, &new);
+    let mut args = vec!["git-diff", "--no-color"];
+    args.extend(seven.iter().map(String::as_str));
+    let out = run_raw(&args);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "stdout: {stdout}");
+    assert!(stdout.contains("deploy.json"), "stdout: {stdout}");
+    assert!(stdout.contains("--no-ext-diff"), "stdout: {stdout}");
+}
+
+#[test]
+fn git_diff_survives_an_unknown_format() {
+    let dir = tempfile_dir();
+    let old = write_temp(&dir, "old.conf", "one\n");
+    let new = write_temp(&dir, "new.conf", "two\n");
+
+    let seven = git_seven("app.conf", &old, &new);
+    let mut args = vec!["git-diff", "--no-color"];
+    args.extend(seven.iter().map(String::as_str));
+    let out = run_raw(&args);
+
+    assert_eq!(out.status.code(), Some(0));
+}
+
+#[test]
+fn normalize_passes_an_unparseable_file_through_unchanged() {
+    // As textconv, normalize feeds git the text it will line-diff. Failing
+    // would break `git log -p`; passing the bytes through degrades to the
+    // ordinary diff the user would have got anyway.
+    let dir = tempfile_dir();
+    let raw = "{\"replicas\": \n";
+    let file = write_temp(&dir, "broken.json", raw);
+
+    let out = run_raw(&["normalize", &file.display().to_string()]);
+
+    assert_eq!(out.status.code(), Some(0));
+    assert_eq!(String::from_utf8(out.stdout).unwrap(), raw);
+}
+
+#[test]
+fn normalize_passes_an_unknown_format_through_unchanged() {
+    let dir = tempfile_dir();
+    let raw = "just some text\n";
+    let file = write_temp(&dir, "app.conf", raw);
+
+    let out = run_raw(&["normalize", &file.display().to_string()]);
+
+    assert_eq!(out.status.code(), Some(0));
+    assert_eq!(String::from_utf8(out.stdout).unwrap(), raw);
+}
+
 mod datadiff_test_support {
     pub fn tempfile_dir() -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(

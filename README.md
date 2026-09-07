@@ -129,6 +129,18 @@ Added and deleted files work too — git passes `/dev/null` for the missing
 side, and datadiff reports every entry as added or removed rather than as one
 opaque change.
 
+Pass any other option ahead of the subcommand. `--key` matters most: without
+it a reordered list of containers reads as four changes, with it as one.
+
+```sh
+git config diff.datadiff.command "datadiff --key name git-diff"
+```
+
+A file datadiff cannot read — one that is not structured data, or one that is
+invalid halfway through an edit — prints a short note and does not stop the
+diff. As textconv the file passes through unchanged, so `git log -p` falls
+back to the diff you would have seen anyway.
+
 ## Installation
 
 **Homebrew** (macOS / Linux):
