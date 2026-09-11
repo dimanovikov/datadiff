@@ -7,3 +7,6 @@ Cargo.lock.bak
 # name ends in a carriage return, which Windows cannot check out at all.
 .DS_Store
 Icon?
+
+# Launch material: post drafts and channel notes, not for the public repo.
+launch/

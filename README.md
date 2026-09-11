@@ -55,6 +55,8 @@ The point of datadiff is not to be another command you remember to run. Set it
 up once and `git diff` tells the truth about config files, with no change to
 how you work.
 
+![git diff with and without datadiff](docs/screenshots/git-diff-before-after.png)
+
 Here is the same commit three ways. Someone changed the replica count; a
 formatter then reordered the file.
 
