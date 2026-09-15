@@ -64,9 +64,11 @@ pub fn render_change(change: &Change, show_unchanged: bool, color: bool) -> Opti
 }
 
 pub fn render_summary(summary: &Summary) -> String {
+    let total = summary.total();
     format!(
-        "{} changes ({} added, {} removed, {} modified)",
-        summary.total(),
+        "{} {} ({} added, {} removed, {} modified)",
+        total,
+        if total == 1 { "change" } else { "changes" },
         summary.added,
         summary.removed,
         summary.modified

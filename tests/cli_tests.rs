@@ -132,7 +132,7 @@ fn nested_change_reports_data_path() {
         stdout.contains("~ services.web.replicas: 2 → 5"),
         "stdout: {stdout}"
     );
-    assert!(stdout.contains("1 changes (0 added, 0 removed, 1 modified)"));
+    assert!(stdout.contains("1 change (0 added, 0 removed, 1 modified)"));
 }
 
 #[test]
@@ -516,7 +516,7 @@ fn exit_zero_overrides_differences_exit_code() {
     let out = run(&[&a, &b], &["--exit-zero"]);
     assert_eq!(out.status.code(), Some(0));
     let stdout = String::from_utf8(out.stdout).unwrap();
-    assert!(stdout.contains("1 changes"), "stdout: {stdout}");
+    assert!(stdout.contains("1 change ("), "stdout: {stdout}");
     // Errors still exit 2.
     let missing = dir.join("nope.json");
     let out = run(&[&missing, &b], &["--exit-zero"]);
