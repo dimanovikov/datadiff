@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>datadiff social preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 640px; overflow: hidden; }
+  body {
+    background: #edf0f3;
+    color: #11161c;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    padding: 44px 56px 0;
+  }
+  header { display: flex; align-items: baseline; gap: 28px; }
+  h1 { font-size: 64px; font-weight: 700; letter-spacing: -0.02em; }
+  .tag { font-size: 27px; color: #4a5561; }
+  .tag b { color: #11161c; font-weight: 600; }
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 34px; }
+  .panel { background: #11161c; border-radius: 14px; overflow: hidden; height: 443px; display: flex; flex-direction: column; }
+  .bar { display: flex; align-items: center; gap: 9px; padding: 14px 20px; background: #1a2129; color: #8b96a1; font-size: 19px; }
+  .dot { width: 13px; height: 13px; border-radius: 50%; }
+  .bar span { margin-left: 10px; }
+  pre { font: inherit; font-size: 23px; line-height: 1.55; padding: 18px 24px 0; color: #e6edf3; flex: 1; white-space: pre; }
+  .p { color: #5aa0ff; }
+  .h { color: #8b96a1; }
+  .r { color: #f0706a; }
+  .g { color: #4fc98a; }
+  .m { color: #f2b544; }
+  .fade { color: #56616d; }
+  .cap { padding: 14px 22px 18px; font-size: 22px; color: #8b96a1; border-top: 1px solid #222b34; }
+  .cap b { color: #e6edf3; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>datadiff</h1>
+    <p class="tag"><b>git diff</b> that reads JSON, YAML, CSV, TOML and XML</p>
+  </header>
+  <div class="panels">
+    <section class="panel">
+      <div class="bar"><i class="dot" style="background:#ee5f57"></i><i class="dot" style="background:#f4bd4f"></i><i class="dot" style="background:#5fc454"></i><span>plain git</span></div>
+<pre><span class="p">$</span> git diff deploy.yaml
+<span class="r">-  replicas: 3</span>
+<span class="r">-      - name: api</span>
+<span class="r">-        image: app:1.0</span>
+<span class="g">+      - image: envoy:1.29</span>
+<span class="g">+        name: sidecar</span>
+<span class="g">+  replicas: 5</span>
+<span class="fade">  … 13 more lines</span></pre>
+      <p class="cap"><b>19 changed lines.</b> Two of them matter.</p>
+    </section>
+    <section class="panel">
+      <div class="bar"><i class="dot" style="background:#ee5f57"></i><i class="dot" style="background:#f4bd4f"></i><i class="dot" style="background:#5fc454"></i><span>git + datadiff</span></div>
+<pre><span class="p">$</span> git diff deploy.yaml
+deploy.yaml
+<span class="m">~ spec.replicas: 3 → 5</span>
+<span class="m">~ spec.template.spec</span>
+<span class="m">  .containers[name=api].image:</span>
+<span class="m">    "app:1.0" → "app:1.1"</span></pre>
+      <p class="cap"><b>Two changes, as data paths.</b></p>
+    </section>
+  </div>
+</body>
+</html>

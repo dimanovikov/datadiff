@@ -5,13 +5,30 @@
 [![GitHub release](https://img.shields.io/github/v/release/dimanovikov/datadiff)](https://github.com/dimanovikov/datadiff/releases/latest)
 [![license](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
 
-Semantic diff for structured data files — **JSON, YAML, CSV, TOML, XML**.
+**Semantic diff for JSON, YAML, CSV, TOML and XML that plugs into `git diff`.**
 
-`datadiff` understands the *structure* of your data instead of comparing files
-line by line. Reordered keys, reformatting and rewrapped YAML produce no
-noise; real changes are reported as **data paths**, not line numbers.
+`datadiff` compares the parsed data instead of the lines. Reordered keys,
+reformatting and rewrapped YAML produce no noise; real changes are reported as
+**data paths**, not line numbers.
 
-![datadiff vs plain git diff](docs/demo.png)
+![git diff with and without datadiff](docs/screenshots/git-diff-before-after.png)
+
+## Quick start
+
+```sh
+brew install dimanovikov/datadiff/datadiff    # or: cargo install datadiff
+
+# compare two files, matching list items by their name field
+datadiff old.yaml new.yaml --key name
+
+# or make git diff use it in the current repository
+git config diff.datadiff.command "datadiff --key name git-diff"
+printf '*.json diff=datadiff\n*.yaml diff=datadiff\n' >> .gitattributes
+```
+
+No Homebrew or Rust? See [Installation](#installation) for a one-line
+installer and prebuilt binaries. How the git integration behaves, including
+`git log -p`, is in [Inside `git diff`](#inside-git-diff).
 
 ## The pain
 
@@ -55,8 +72,6 @@ The point of datadiff is not to be another command you remember to run. Set it
 up once and `git diff` tells the truth about config files, with no change to
 how you work.
 
-![git diff with and without datadiff](docs/screenshots/git-diff-before-after.png)
-
 Here is the same commit three ways. Someone changed the replica count; a
 formatter then reordered the file.
 
@@ -80,7 +95,7 @@ matters is buried:
 $ git diff deploy.yaml
 deploy.yaml
 ~ spec.replicas: 3 → 5
-1 changes (0 added, 0 removed, 1 modified)
+1 change (0 added, 0 removed, 1 modified)
 ```
 
 **And in history, where a line diff is still what you want — just without the
@@ -200,7 +215,7 @@ Kubernetes manifests with reordered keys and one real change:
 ```sh
 $ datadiff examples/k8s-old.yaml examples/k8s-new.yaml
 ~ spec.replicas: 3 → 5
-1 changes (0 added, 0 removed, 1 modified)
+1 change (0 added, 0 removed, 1 modified)
 ```
 
 A CSV price list, matched by the `id` column (reordering rows is free):
@@ -394,6 +409,13 @@ Scalar values are rendered in JSON representation.
 - `2` — error (file not found, invalid format)
 
 The `0`/`1` split makes `datadiff` drop-in usable in CI gates and scripts.
+
+## Feedback
+
+Found a format, a path pattern or a git setup that datadiff gets wrong? Open an
+[issue](https://github.com/dimanovikov/datadiff/issues) or start a
+[discussion](https://github.com/dimanovikov/datadiff/discussions). If it saved
+you from a bad review, a star helps other people find it.
 
 ## License
 
