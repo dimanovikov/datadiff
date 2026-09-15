@@ -2,12 +2,12 @@
 name = "datadiff"
 version = "0.4.0"
 edition = "2021"
-description = "Semantic diff for structured data files (JSON, YAML, CSV, TOML, XML)"
+description = "Semantic diff for JSON, YAML, CSV, TOML and XML that plugs into git diff"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/dimanovikov/datadiff"
 homepage = "https://github.com/dimanovikov/datadiff"
-keywords = ["diff", "json", "yaml", "csv", "cli"]
-categories = ["command-line-utilities"]
+keywords = ["diff", "git", "json", "yaml", "csv"]
+categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }

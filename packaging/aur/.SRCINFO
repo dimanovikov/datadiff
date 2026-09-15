@@ -1,5 +1,5 @@
 pkgbase = datadiff
-	pkgdesc = Semantic diff for structured data files (JSON, YAML, CSV, TOML, XML)
+	pkgdesc = Semantic diff for JSON, YAML, CSV, TOML and XML that plugs into git diff
 	pkgver = 0.4.0
 	pkgrel = 1
 	url = https://github.com/dimanovikov/datadiff
