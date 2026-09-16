@@ -182,6 +182,56 @@ fn csv_without_key_matches_by_row_number() {
     assert_eq!(out.status.code(), Some(1));
 }
 
+/// Diffs a one-column CSV cell changing from `old` to `new`.
+fn csv_cell_change(old: &str, new: &str) -> Output {
+    let dir = tempfile_dir();
+    let a = write_temp(&dir, "a.csv", &format!("id,v\n1,{old}\n"));
+    let b = write_temp(&dir, "b.csv", &format!("id,v\n1,{new}\n"));
+    run(&[&a, &b], &["--key", "id"])
+}
+
+#[test]
+fn csv_leading_zeros_are_not_dropped() {
+    // Zip codes, article numbers: 00544 and 544 are different values.
+    for (old, new) in [("00544", "544"), ("-007", "-7"), ("0123.5", "123.5")] {
+        let out = csv_cell_change(old, new);
+        let stdout = String::from_utf8(out.stdout).unwrap();
+        assert_eq!(out.status.code(), Some(1), "{old} -> {new}: {stdout}");
+        assert!(stdout.contains(&format!("\"{old}\"")), "stdout: {stdout}");
+    }
+}
+
+#[test]
+fn csv_words_are_not_parsed_as_special_floats() {
+    // "Nan" is a name, not NaN: identical cells must not differ.
+    let out = csv_cell_change("Nan", "Nan");
+    assert_eq!(out.status.code(), Some(0), "{:?}", out);
+    // "inf" and "Infinity" are different text, not the same infinity.
+    let out = csv_cell_change("inf", "Infinity");
+    assert_eq!(out.status.code(), Some(1), "{:?}", out);
+}
+
+#[test]
+fn csv_integers_beyond_i64_keep_every_digit() {
+    // A 20-digit account number must not collapse into a rounded float.
+    let out = csv_cell_change("12345678901234567890", "12345678901234567891");
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(1), "stdout: {stdout}");
+}
+
+#[test]
+fn csv_equal_numbers_in_different_notation_stay_equal() {
+    for (old, new) in [
+        ("100", "100.0"),
+        ("0.5", "0.50"),
+        ("0", "0"),
+        ("1e3", "1000"),
+    ] {
+        let out = csv_cell_change(old, new);
+        assert_eq!(out.status.code(), Some(0), "{old} -> {new}: {:?}", out);
+    }
+}
+
 #[test]
 fn missing_file_exits_2() {
     let dir = tempfile_dir();

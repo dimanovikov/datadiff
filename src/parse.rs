@@ -72,7 +72,9 @@ fn parse_xml(contents: &str) -> anyhow::Result<Value> {
 /// Parse CSV into an array of objects: the header row provides the keys and
 /// every data row becomes one object. Values are kept as strings except that
 /// values that look like numbers are parsed as numbers, so numeric
-/// comparisons work the same as in JSON/YAML.
+/// comparisons work the same as in JSON/YAML. A cell stays a string whenever
+/// reading it as a number would lose what was written (see
+/// [`is_plain_number`]).
 fn parse_csv(contents: &str) -> anyhow::Result<Value> {
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(true)
@@ -105,11 +107,35 @@ fn csv_field_to_value(field: &str) -> Value {
     if trimmed.is_empty() {
         return Value::String(String::new());
     }
-    if let Ok(i) = trimmed.parse::<i64>() {
-        return Value::Number(crate::value::Number::Int(i));
-    }
-    if let Ok(f) = trimmed.parse::<f64>() {
-        return Value::Number(crate::value::Number::Float(f));
+    if is_plain_number(trimmed) {
+        if let Ok(i) = trimmed.parse::<i64>() {
+            return Value::Number(crate::value::Number::Int(i));
+        }
+        // An integer too long for i64 would lose digits as a float.
+        let is_integer = trimmed
+            .trim_start_matches(['+', '-'])
+            .bytes()
+            .all(|b| b.is_ascii_digit());
+        if !is_integer {
+            if let Ok(f) = trimmed.parse::<f64>() {
+                if f.is_finite() {
+                    return Value::Number(crate::value::Number::Float(f));
+                }
+            }
+        }
     }
     Value::String(field.to_string())
+}
+
+/// Whether a CSV cell can be read as a number without losing what was
+/// written: only digits, sign, point and exponent (so `NaN` and `inf` stay
+/// text), and no leading zero before another digit (so `00544` stays an
+/// identifier rather than becoming 544).
+fn is_plain_number(s: &str) -> bool {
+    let numeric_chars = s
+        .bytes()
+        .all(|b| b.is_ascii_digit() || matches!(b, b'+' | b'-' | b'.' | b'e' | b'E'));
+    let unsigned = s.trim_start_matches(['+', '-']).as_bytes();
+    let leading_zero = unsigned.len() > 1 && unsigned[0] == b'0' && unsigned[1].is_ascii_digit();
+    numeric_chars && !leading_zero
 }
