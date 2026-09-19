@@ -55,16 +55,20 @@ Plain `diff` on structured files is noisy:
 | Approach | structural data diff | optimal tree edit distance | YAML/JSON data diff | syntax diff for source code |
 | Formats | JSON, YAML, CSV, TOML, XML | JSON, YAML, XML, CSV, … | YAML (JSON) | programming languages |
 | Arrays matched by key | yes (`--key id`) | heuristic, slow | no | n/a |
-| 1,000-object JSON (112 KB) | **0.07 s** | >10 min (timed out) | — | — |
+| 500-object JSON (73 KB) | **0.005 s** | 38 s | — | — |
 | Patch mode / conversion | yes | no | no | no |
 | CI risk policies | yes (`--fail-on`) | no | no | no |
 
-Measured on the same machine with datadiff 0.2.0 and Graphtage 0.3.1:
-datadiff finished a 5,000-object JSON diff in 0.1 s; Graphtage did not
-finish the 1,000-object file within a 10-minute timeout. The tools make
-different trade-offs (Graphtage finds *optimal* matches; datadiff matches
-structure predictably) — but for reviewing config changes, predictable and
-fast wins.
+Measured on an Apple M4 with datadiff 0.4.1 and Graphtage 0.5.0, on arrays of
+objects where the new file is the old one shuffled with 1% of the entries
+changed. Graphtage took 2 s for 100 objects, 9.5 s for 250 and 38 s for 500,
+about four times longer for every doubling, and did not finish 1,000 objects
+within two minutes. datadiff stayed under 10 ms up to 1,000 objects and
+diffed 100,000 (15 MB) in 0.4 s. The tools make different trade-offs
+(Graphtage finds *optimal* matches without being told how elements are
+identified; datadiff matches structure predictably) — but for reviewing
+config changes, predictable and fast wins. To reproduce, run
+[`bench/compare_graphtage.py`](bench/compare_graphtage.py).
 
 ## Inside `git diff`
 
