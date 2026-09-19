@@ -1,6 +1,6 @@
 [package]
 name = "datadiff"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "Semantic diff for JSON, YAML, CSV, TOML and XML that plugs into git diff"
 license = "MIT OR Apache-2.0"
