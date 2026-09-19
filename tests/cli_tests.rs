@@ -1122,14 +1122,22 @@ fn normalize_passes_a_non_utf8_file_through_unchanged() {
 }
 
 mod datadiff_test_support {
+    /// Tests run in parallel and write files with the same names, so each one
+    /// needs a directory of its own. The clock alone is not enough: on macOS
+    /// two tests starting together read the same nanosecond, land in the same
+    /// directory and overwrite each other's input, which fails whichever test
+    /// loses the race.
+    static NEXT_ID: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
     pub fn tempfile_dir() -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "datadiff-test-{}-{}",
+            "datadiff-test-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         std::fs::create_dir_all(&dir).unwrap();
         dir
