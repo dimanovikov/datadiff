@@ -10,3 +10,7 @@ Icon?
 
 # Launch material: post drafts and channel notes, not for the public repo.
 launch/
+
+# Bytecode the benchmark script leaves behind when Python runs it from bench/.
+__pycache__/
+*.pyc
