@@ -196,6 +196,13 @@ cargo install datadiff          # from crates.io
 cargo install --path .          # from a local checkout
 ```
 
+**Nix** (flakes):
+
+```sh
+nix run github:dimanovikov/datadiff -- old.yaml new.yaml   # try it without installing
+nix profile install github:dimanovikov/datadiff
+```
+
 ## Usage
 
 ```sh

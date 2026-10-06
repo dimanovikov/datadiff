@@ -13,6 +13,11 @@
   бинарник через `CARGO_BIN_EXE_datadiff`
 - CI: GitHub Actions (`.github/workflows/ci.yml`) — build + test на
   ubuntu / windows / macos
+- Nix: `flake.nix` собирает пакет через `rustPlatform.buildRustPackage`,
+  версию и описание берёт из `Cargo.toml` — при релизе править не нужно.
+  `.github/workflows/nix.yml` гоняет `nix build` (с тестами) на ubuntu и
+  macos, когда меняются flake- или Cargo-файлы. nixpkgs обновлять через
+  `nix flake update`
 - Релизы: `.github/workflows/release.yml` — по тегу `v*` собирает бинарники
   (linux x86_64/arm64, macos arm64, windows msvc) и выкладывает в
   GitHub Releases; `install.sh` / `install.ps1` качают бинарник из
