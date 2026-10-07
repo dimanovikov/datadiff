@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>kubectl diff with and without datadiff</title>
+<!-- Lines are from a real run against a kind cluster (README, "Inside kubectl diff").
+     Render: Chrome --headless --window-size=1000,420 --force-device-scale-factor=2 -->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1000px; height: 420px; overflow: hidden; }
+  body {
+    background: #edf0f3;
+    color: #11161c;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    padding: 24px 32px 0;
+  }
+  header { display: flex; align-items: baseline; gap: 18px; }
+  h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+  .tag { font-size: 16px; color: #4a5561; }
+  .tag b { color: #11161c; font-weight: 600; }
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+  .panel { background: #11161c; border-radius: 10px; overflow: hidden; height: 318px; display: flex; flex-direction: column; }
+  .bar { display: flex; align-items: center; gap: 6px; padding: 9px 14px; background: #1a2129; color: #8b96a1; font-size: 12.5px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .bar span { margin-left: 8px; }
+  pre { font: inherit; font-size: 13.5px; line-height: 1.45; padding: 11px 16px 0; color: #e6edf3; flex: 1; min-height: 0; overflow: hidden; white-space: pre; }
+  .p { color: #5aa0ff; }
+  .r { color: #f0706a; }
+  .g { color: #4fc98a; }
+  .m { color: #f2b544; }
+  .fade { color: #56616d; }
+  .cap { padding: 9px 16px 11px; font-size: 13px; color: #8b96a1; border-top: 1px solid #222b34; }
+  .cap b { color: #e6edf3; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>kubectl diff</h1>
+    <p class="tag">what <b>kubectl apply</b> would change, without the noise</p>
+  </header>
+  <div class="panels">
+    <section class="panel">
+      <div class="bar"><i class="dot" style="background:#ee5f57"></i><i class="dot" style="background:#f4bd4f"></i><i class="dot" style="background:#5fc454"></i><span>plain kubectl diff</span></div>
+<pre><span class="p">$</span> kubectl diff -f deploy.yaml
+<span class="r">-  generation: 1</span>
+<span class="g">+  generation: 2</span>
+<span class="r">-  replicas: 3</span>
+<span class="g">+  replicas: 5</span>
+<span class="r">-      - env:</span>
+<span class="r">-        - name: LOG_LEVEL</span>
+<span class="r">-        image: nginx:1.27</span>
+<span class="g">+      - env:</span>
+<span class="g">+        - name: REGION</span>
+<span class="g">+        image: nginx:1.28</span>
+<span class="fade">  … 16 more lines</span></pre>
+      <p class="cap"><b>26 changed lines</b> for three changes.</p>
+    </section>
+    <section class="panel">
+      <div class="bar"><i class="dot" style="background:#ee5f57"></i><i class="dot" style="background:#f4bd4f"></i><i class="dot" style="background:#5fc454"></i><span>KUBECTL_EXTERNAL_DIFF="datadiff --key name"</span></div>
+<pre><span class="p">$</span> kubectl diff -f deploy.yaml
+apps.v1.Deployment.default.api
+<span class="m">~ metadata.generation: 1 → 2</span>
+<span class="m">~ spec.replicas: 3 → 5</span>
+<span class="m">~ spec.template.spec</span>
+<span class="m">  .containers[name=api].image:</span>
+<span class="m">    "nginx:1.27" → "nginx:1.28"</span>
+3 changes (0 added, 0 removed, 3 modified)</pre>
+      <p class="cap"><b>The same three changes, as data paths.</b></p>
+    </section>
+  </div>
+</body>
+</html>
