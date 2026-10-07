@@ -162,6 +162,64 @@ invalid halfway through an edit — prints a short note and does not stop the
 diff. As textconv the file passes through unchanged, so `git log -p` falls
 back to the diff you would have seen anyway.
 
+## Inside `kubectl diff`
+
+`kubectl diff` shows what `kubectl apply` would change in the cluster. It
+writes the live objects and the would-be objects into two directories and
+line-diffs them, so a manifest that only reorders its containers reads as a
+rewrite. kubectl runs the program in `KUBECTL_EXTERNAL_DIFF` instead, and
+datadiff compares two directories file by file:
+
+```sh
+export KUBECTL_EXTERNAL_DIFF="datadiff --key name"
+kubectl diff -f deploy.yaml
+```
+
+```
+apps.v1.Deployment.default.api
+~ metadata.generation: 1 → 2
+~ spec.replicas: 3 → 5
+~ spec.template.spec.containers[name=api].image: "nginx:1.27" → "nginx:1.28"
+3 changes (0 added, 0 removed, 3 modified)
+v1.ConfigMap.default.api-config
++ apiVersion: "v1"
++ data: {"feature_flags":"beta"}
++ kind: "ConfigMap"
++ metadata: {"creationTimestamp":"2026-10-07T18:27:38Z","name":"api-config","namespace":"default","uid":"11c4ba1a-b34f-4fc5-98b1-b20d769f536b"}
+4 changes (4 added, 0 removed, 0 modified)
+```
+
+That is a real run against a [kind](https://kind.sigs.k8s.io/) cluster. The
+new manifest also swapped the two containers and the order of the env vars,
+which plain `kubectl diff` showed as 35 changed lines. Each object is printed
+under kubectl's name for it, `group.version.Kind.namespace.name`; an object not
+in the cluster yet is reported entry by entry. The exit code follows kubectl's
+convention: 0 for no differences, 1 for differences, above 1 for an error.
+
+kubectl passes on only those words of `KUBECTL_EXTERNAL_DIFF` made of letters,
+digits, `-` and `=`, and drops the rest without a warning: `--key name` gets
+through, a path like `spec.replicas` does not. Give path options through the
+environment instead:
+
+```sh
+export KUBECTL_EXTERNAL_DIFF="datadiff --key name"
+export DATADIFF_IGNORE=metadata.generation
+export DATADIFF_FAIL_ON=spec.replicas,*.image
+kubectl diff -f deploy.yaml
+```
+
+[`--ignore`](#ignoring-paths---ignore) leaves out kubectl's own bookkeeping,
+and [`--fail-on`](#risk-policies-for-ci---fail-on) makes the exit code 1 only
+for the paths that matter, which turns `kubectl diff` into a drift check for
+CI. If you switch an object from client-side to server-side apply, its
+`kubectl.kubernetes.io/last-applied-configuration` annotation changes once;
+ignore it with
+`metadata.annotations.kubectl.kubernetes.io/last-applied-configuration`.
+
+The same works for any two directories, `datadiff old/ new/`: files are paired
+by name, a name without a known extension is read as YAML, and nested
+directories are not compared.
+
 ## Installation
 
 **Homebrew** (macOS / Linux):
@@ -322,6 +380,7 @@ Defaults can come from a `.env` file in the working directory
 | `DATADIFF_OUTPUT` | `--output`       |
 | `DATADIFF_EXIT_ZERO` | `--exit-zero` |
 | `DATADIFF_FAIL_ON` | `--fail-on`     |
+| `DATADIFF_IGNORE` | `--ignore`       |
 
 Priority: CLI flag > `.env` > built-in default.
 
@@ -400,6 +459,19 @@ For GitHub Actions there is a ready-made wrapper —
     old: base/deploy/app.yaml
     new: deploy/app.yaml
     fail-on: spec.replicas,*.image
+```
+
+### Ignoring paths (`--ignore`)
+
+Some changes are never worth reading: a counter the server bumps, a
+timestamp, an annotation a tool rewrites. `--ignore` takes the same path
+patterns as `--fail-on` and leaves matching changes out entirely — they are
+not printed, not counted and not checked against `--fail-on`:
+
+```sh
+$ datadiff old.yaml new.yaml --ignore metadata.generation
+~ spec.replicas: 3 → 5
+1 change (0 added, 0 removed, 1 modified)
 ```
 
 ### Output legend

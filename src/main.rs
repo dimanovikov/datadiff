@@ -64,6 +64,12 @@ struct Cli {
     /// changes still print but exit 0. Repeatable, comma-separated.
     #[arg(long, env = "DATADIFF_FAIL_ON", value_delimiter = ',')]
     fail_on: Vec<String>,
+
+    /// Leave out changes whose path matches one of these patterns (same
+    /// syntax as --fail-on): they are not printed, counted or checked.
+    /// Repeatable, comma-separated.
+    #[arg(long, env = "DATADIFF_IGNORE", value_delimiter = ',')]
+    ignore: Vec<String>,
 }
 
 #[derive(clap::Subcommand)]
@@ -251,7 +257,8 @@ fn compare(
         old_value.unwrap_or_else(|| empty_like(new_value.as_ref().unwrap_or(&value::Value::Null)));
     let new_value = new_value.unwrap_or_else(|| empty_like(&old_value));
 
-    let changes = diff::diff(&old_value, &new_value, cli.key.as_deref());
+    let mut changes = diff::diff(&old_value, &new_value, cli.key.as_deref());
+    changes.retain(|c| !cli.ignore.iter().any(|p| policy::matches(p, &c.path)));
     let summary = diff::summarize(&changes);
     Ok(FileDiff {
         changes,

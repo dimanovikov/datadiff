@@ -1,4 +1,4 @@
-//! Path-pattern matching for `--fail-on` risk policies.
+//! Path-pattern matching for `--fail-on` risk policies and `--ignore`.
 
 /// Does `pattern` select `path`? A pattern matches when it equals the path,
 /// is a dot-segment prefix of it (`spec` matches `spec.replicas`), or its

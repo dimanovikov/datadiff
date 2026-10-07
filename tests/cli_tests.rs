@@ -1304,6 +1304,68 @@ fn directories_are_compared_as_text_only() {
     assert!(stderr.contains("--output text"), "stderr: {stderr}");
 }
 
+#[test]
+fn ignore_leaves_matching_changes_out() {
+    let dir = tempfile_dir();
+    let old = write_temp(
+        &dir,
+        "old.yaml",
+        "metadata:\n  generation: 1\nspec:\n  replicas: 3\n",
+    );
+    let new = write_temp(
+        &dir,
+        "new.yaml",
+        "metadata:\n  generation: 2\nspec:\n  replicas: 5\n",
+    );
+
+    let out = run(&[&old, &new], &["--ignore", "metadata.generation"]);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(1), "stdout: {stdout}");
+    assert!(!stdout.contains("generation"), "stdout: {stdout}");
+    assert!(stdout.contains("1 change "), "stdout: {stdout}");
+}
+
+#[test]
+fn ignore_of_every_change_exits_zero() {
+    // A prefix covers everything under it, including annotation keys that
+    // contain dots and slashes themselves.
+    let dir = tempfile_dir();
+    let old = write_temp(
+        &dir,
+        "old.yaml",
+        "metadata:\n  annotations:\n    kubectl.kubernetes.io/last-applied-configuration: a\n",
+    );
+    let new = write_temp(
+        &dir,
+        "new.yaml",
+        "metadata:\n  annotations:\n    kubectl.kubernetes.io/last-applied-configuration: b\n",
+    );
+
+    let out = run(&[&old, &new], &["--ignore", "metadata.annotations"]);
+
+    assert_eq!(out.status.code(), Some(0), "{:?}", out);
+}
+
+#[test]
+fn ignore_is_read_from_the_environment() {
+    // kubectl drops KUBECTL_EXTERNAL_DIFF arguments that contain a dot, so
+    // the environment is the only way to pass a path pattern through it.
+    let (live, merged) = kubectl_dirs();
+    write_temp(&live, "a", "metadata:\n  generation: 1\n");
+    write_temp(&merged, "a", "metadata:\n  generation: 2\n");
+
+    let out = bin()
+        .arg(&live)
+        .arg(&merged)
+        .arg("--no-color")
+        .env("DATADIFF_IGNORE", "metadata.generation")
+        .output()
+        .unwrap();
+
+    assert_eq!(out.status.code(), Some(0), "{:?}", out);
+}
+
 mod datadiff_test_support {
     /// Tests run in parallel and write files with the same names, so each one
     /// needs a directory of its own. The clock alone is not enough: on macOS
