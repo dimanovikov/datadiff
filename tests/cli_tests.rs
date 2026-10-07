@@ -1121,6 +1121,189 @@ fn normalize_passes_a_non_utf8_file_through_unchanged() {
     assert_eq!(out.stdout, raw);
 }
 
+/// `kubectl diff` writes one YAML file per object into a LIVE and a MERGED
+/// directory and runs `$KUBECTL_EXTERNAL_DIFF <live-dir> <merged-dir>`.
+fn kubectl_dirs() -> (std::path::PathBuf, std::path::PathBuf) {
+    let root = tempfile_dir();
+    let live = root.join("LIVE-1");
+    let merged = root.join("MERGED-1");
+    std::fs::create_dir_all(&live).unwrap();
+    std::fs::create_dir_all(&merged).unwrap();
+    (live, merged)
+}
+
+#[test]
+fn directories_are_compared_file_by_file_under_each_name() {
+    // kubectl names the files group.version.Kind.namespace.name, with no
+    // format extension, and always writes YAML.
+    let (live, merged) = kubectl_dirs();
+    let name = "apps.v1.Deployment.default.api";
+    write_temp(&live, name, "spec:\n  replicas: 3\n");
+    write_temp(&merged, name, "spec:\n  replicas: 5\n");
+
+    let out = run(&[&live, &merged], &[]);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(1), "stdout: {stdout}");
+    assert!(stdout.contains(name), "stdout: {stdout}");
+    assert!(
+        stdout.contains("~ spec.replicas: 3 \u{2192} 5"),
+        "stdout: {stdout}"
+    );
+}
+
+#[test]
+fn directories_print_nothing_for_files_that_did_not_change() {
+    let (live, merged) = kubectl_dirs();
+    // Same data, different layout: not a change, so not worth a header.
+    write_temp(&live, "v1.Service.default.api", "spec:\n  ports: [80]\n");
+    write_temp(&merged, "v1.Service.default.api", "spec: {ports: [80]}\n");
+    write_temp(
+        &live,
+        "apps.v1.Deployment.default.api",
+        "spec:\n  replicas: 3\n",
+    );
+    write_temp(
+        &merged,
+        "apps.v1.Deployment.default.api",
+        "spec:\n  replicas: 5\n",
+    );
+
+    let out = run(&[&live, &merged], &[]);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(!stdout.contains("Service"), "stdout: {stdout}");
+    assert!(stdout.contains("Deployment"), "stdout: {stdout}");
+}
+
+#[test]
+fn directories_exit_zero_when_every_file_matches() {
+    let (live, merged) = kubectl_dirs();
+    write_temp(
+        &live,
+        "v1.ConfigMap.default.cfg",
+        "data:\n  a: \"1\"\n  b: \"2\"\n",
+    );
+    write_temp(
+        &merged,
+        "v1.ConfigMap.default.cfg",
+        "data:\n  b: \"2\"\n  a: \"1\"\n",
+    );
+
+    let out = run(&[&live, &merged], &[]);
+
+    assert_eq!(out.status.code(), Some(0), "{:?}", out);
+}
+
+#[test]
+fn directories_report_a_new_object_entry_by_entry() {
+    // An object that is not in the cluster yet goes to LIVE as an empty file.
+    let (live, merged) = kubectl_dirs();
+    write_temp(&live, "v1.ConfigMap.default.cfg", "");
+    write_temp(&merged, "v1.ConfigMap.default.cfg", "data:\n  a: \"1\"\n");
+
+    let out = run(&[&live, &merged], &[]);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(1), "stdout: {stdout}");
+    assert!(stdout.contains("+ data: {\"a\":\"1\"}"), "stdout: {stdout}");
+}
+
+#[test]
+fn directories_report_a_file_present_on_one_side_only() {
+    let (live, merged) = kubectl_dirs();
+    write_temp(&live, "old.yaml", "replicas: 3\n");
+    write_temp(&merged, "new.yaml", "replicas: 5\n");
+
+    let out = run(&[&live, &merged], &[]);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(1), "stdout: {stdout}");
+    assert!(stdout.contains("- replicas: 3"), "stdout: {stdout}");
+    assert!(stdout.contains("+ replicas: 5"), "stdout: {stdout}");
+}
+
+#[test]
+fn directories_match_list_items_by_key() {
+    let (live, merged) = kubectl_dirs();
+    let name = "apps.v1.Deployment.default.api";
+    write_temp(
+        &live,
+        name,
+        "containers:\n- name: api\n  image: app:1\n- name: sidecar\n  image: envoy\n",
+    );
+    write_temp(
+        &merged,
+        name,
+        "containers:\n- name: sidecar\n  image: envoy\n- name: api\n  image: app:1\n",
+    );
+
+    let out = run(&[&live, &merged], &["--key", "name"]);
+
+    assert_eq!(out.status.code(), Some(0), "{:?}", out);
+}
+
+#[test]
+fn directories_take_the_format_from_a_known_extension() {
+    // Not every directory comes from kubectl: a known extension still decides
+    // the format. Read as YAML, this TOML would be one opaque string.
+    let (live, merged) = kubectl_dirs();
+    write_temp(&live, "app.toml", "replicas = 3\n");
+    write_temp(&merged, "app.toml", "replicas = 5\n");
+
+    let out = run(&[&live, &merged], &[]);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("~ replicas: 3 \u{2192} 5"),
+        "stdout: {stdout}"
+    );
+}
+
+#[test]
+fn directories_apply_fail_on_across_all_files() {
+    let (live, merged) = kubectl_dirs();
+    write_temp(&live, "a", "metadata:\n  labels:\n    team: x\n");
+    write_temp(&merged, "a", "metadata:\n  labels:\n    team: y\n");
+    write_temp(&live, "b", "spec:\n  replicas: 3\n");
+    write_temp(&merged, "b", "spec:\n  replicas: 5\n");
+
+    let pass = run(&[&live, &merged], &["--fail-on", "spec.template"]);
+    let fail = run(&[&live, &merged], &["--fail-on", "spec.replicas"]);
+
+    assert_eq!(pass.status.code(), Some(0), "{:?}", pass);
+    assert_eq!(fail.status.code(), Some(1), "{:?}", fail);
+}
+
+#[test]
+fn a_directory_cannot_be_compared_with_a_file() {
+    let (live, merged) = kubectl_dirs();
+    let file = write_temp(&merged, "x.yaml", "a: 1\n");
+
+    let out = run(&[&live, &file], &[]);
+
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert_eq!(out.status.code(), Some(2), "stderr: {stderr}");
+    assert!(
+        stderr.contains("a directory can only be compared with a directory"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn directories_are_compared_as_text_only() {
+    // One JSON document per file would not add up to valid JSON.
+    let (live, merged) = kubectl_dirs();
+    write_temp(&live, "a.yaml", "replicas: 3\n");
+    write_temp(&merged, "a.yaml", "replicas: 5\n");
+
+    let out = run(&[&live, &merged], &["--output", "json"]);
+
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert_eq!(out.status.code(), Some(2), "stderr: {stderr}");
+    assert!(stderr.contains("--output text"), "stderr: {stderr}");
+}
+
 mod datadiff_test_support {
     /// Tests run in parallel and write files with the same names, so each one
     /// needs a directory of its own. The clock alone is not enough: on macOS

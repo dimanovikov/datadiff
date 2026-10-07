@@ -118,7 +118,79 @@ fn run_diff(cli: &Cli) -> anyhow::Result<DiffOutcome> {
         .as_deref()
         .context("missing OLD and NEW file arguments (or use a subcommand like `patch`)")?;
     let new_path = cli.new.as_deref().context("missing NEW file argument")?;
-    diff_files(cli, old_path, new_path, None)
+    match (old_path.is_dir(), new_path.is_dir()) {
+        (true, true) => diff_dirs(cli, old_path, new_path),
+        (false, false) => diff_files(cli, old_path, new_path, None),
+        _ => bail!("a directory can only be compared with a directory"),
+    }
+}
+
+/// Diff two directories file by file, pairing files by name. This is how
+/// `kubectl diff` calls `$KUBECTL_EXTERNAL_DIFF`: one file per object in a
+/// LIVE and a MERGED directory, named `group.version.Kind.namespace.name`
+/// with no format extension, so a name without a known extension is read as
+/// YAML, the only format kubectl writes. A file missing on one side, or empty
+/// there (kubectl's placeholder for an object not in the cluster yet), is
+/// reported entry by entry. Only files that changed are printed, each under
+/// its name.
+fn diff_dirs(cli: &Cli, old_dir: &Path, new_dir: &Path) -> anyhow::Result<DiffOutcome> {
+    if cli.output.is_some_and(|o| o != OutputFormat::Text) {
+        // One document per file would not add up to a single valid document.
+        bail!("directories can only be compared with --output text");
+    }
+    let mut names = dir_file_names(old_dir)?;
+    names.extend(dir_file_names(new_dir)?);
+
+    let mut total = DiffOutcome {
+        summary: diff::Summary::default(),
+        fail_on_hit: false,
+    };
+    for name in &names {
+        let side = |dir: &Path| {
+            let path = dir.join(name);
+            // read_and_parse treats /dev/null as "no document here".
+            if path.exists() {
+                path
+            } else {
+                PathBuf::from("/dev/null")
+            }
+        };
+        let format = cli
+            .format
+            .unwrap_or_else(|| parse::detect_format(Path::new(name)).unwrap_or(Format::Yaml));
+        let file_diff = compare(cli, &side(old_dir), &side(new_dir), format)
+            .with_context(|| format!("cannot compare '{}'", name.to_string_lossy()))?;
+        if file_diff.summary.total() == 0 && !cli.show_unchanged {
+            continue;
+        }
+        println!("{}", Path::new(name).display());
+        print_diff(cli, &file_diff);
+        let outcome = file_diff.into_outcome(cli);
+        total.summary.added += outcome.summary.added;
+        total.summary.removed += outcome.summary.removed;
+        total.summary.modified += outcome.summary.modified;
+        total.fail_on_hit |= outcome.fail_on_hit;
+    }
+    Ok(total)
+}
+
+/// Names of the files directly inside `dir`, sorted. kubectl writes a flat
+/// directory, so a nested one is reported rather than silently skipped.
+fn dir_file_names(dir: &Path) -> anyhow::Result<std::collections::BTreeSet<std::ffi::OsString>> {
+    let mut names = std::collections::BTreeSet::new();
+    let entries = std::fs::read_dir(dir)
+        .with_context(|| format!("cannot read directory '{}'", dir.display()))?;
+    for entry in entries {
+        let entry = entry.with_context(|| format!("cannot read directory '{}'", dir.display()))?;
+        if entry.path().is_dir() {
+            bail!(
+                "nested directories are not compared: '{}'",
+                entry.path().display()
+            );
+        }
+        names.insert(entry.file_name());
+    }
+    Ok(names)
 }
 
 /// Diff two files. `named_as` is the path the format should be detected from
@@ -151,6 +223,24 @@ fn diff_files(
         }
     };
 
+    let file_diff = compare(cli, old_path, new_path, format)?;
+    print_diff(cli, &file_diff);
+    Ok(file_diff.into_outcome(cli))
+}
+
+/// The changes between two files, computed but not yet printed.
+struct FileDiff {
+    changes: Vec<diff::Change>,
+    summary: diff::Summary,
+    old_value: value::Value,
+}
+
+fn compare(
+    cli: &Cli,
+    old_path: &Path,
+    new_path: &Path,
+    format: Format,
+) -> anyhow::Result<FileDiff> {
     let old_value = read_and_parse(old_path, format)?;
     let new_value = read_and_parse(new_path, format)?;
 
@@ -163,38 +253,53 @@ fn diff_files(
 
     let changes = diff::diff(&old_value, &new_value, cli.key.as_deref());
     let summary = diff::summarize(&changes);
+    Ok(FileDiff {
+        changes,
+        summary,
+        old_value,
+    })
+}
 
+fn print_diff(cli: &Cli, file_diff: &FileDiff) {
+    let FileDiff {
+        changes,
+        summary,
+        old_value,
+    } = file_diff;
     match cli.output.unwrap_or_default() {
         OutputFormat::Text => {
-            for change in &changes {
+            for change in changes {
                 if let Some(line) = output::render_change(change, cli.show_unchanged, !cli.no_color)
                 {
                     println!("{line}");
                 }
             }
-            println!("{}", output::render_summary(&summary));
+            println!("{}", output::render_summary(summary));
         }
         OutputFormat::Json => {
             println!(
                 "{}",
-                output::render_json(&changes, &summary, cli.show_unchanged)
+                output::render_json(changes, summary, cli.show_unchanged)
             );
         }
         OutputFormat::Patch => {
-            println!("{}", output::render_json_patch(&changes, &old_value));
+            println!("{}", output::render_json_patch(changes, old_value));
         }
     }
+}
 
-    let fail_on_hit = !cli.fail_on.is_empty()
-        && changes.iter().any(|c| {
-            c.kind != diff::ChangeKind::Unchanged
-                && cli.fail_on.iter().any(|p| policy::matches(p, &c.path))
-        });
-
-    Ok(DiffOutcome {
-        summary,
-        fail_on_hit,
-    })
+impl FileDiff {
+    fn into_outcome(self, cli: &Cli) -> DiffOutcome {
+        let fail_on_hit = !cli.fail_on.is_empty()
+            && self.changes.iter().any(|c| {
+                c.kind != diff::ChangeKind::Unchanged
+                    && cli.fail_on.iter().any(|p| policy::matches(p, &c.path))
+            });
+        DiffOutcome {
+            summary: self.summary,
+            fail_on_hit,
+        }
+    }
 }
 
 /// Result of a diff run: the change counts plus whether any change path
