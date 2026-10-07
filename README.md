@@ -191,7 +191,8 @@ v1.ConfigMap.default.api-config
 
 That is a real run against a [kind](https://kind.sigs.k8s.io/) cluster. The
 new manifest also swapped the two containers and the order of the env vars,
-which plain `kubectl diff` showed as 35 changed lines. Each object is printed
+and plain `kubectl diff` printed 26 changed lines for the same Deployment,
+the image bump among them. Each object is printed
 under kubectl's name for it, `group.version.Kind.namespace.name`; an object not
 in the cluster yet is reported entry by entry. The exit code follows kubectl's
 convention: 0 for no differences, 1 for differences, above 1 for an error.
