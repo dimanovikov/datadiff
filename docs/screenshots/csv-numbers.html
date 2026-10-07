@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>When is a CSV cell a number?</title>
+<!-- Parse results checked with rustc 1.98.1; right panel is how datadiff >= 0.4.1 reads these CSV cells.
+     Render: Chrome --headless --window-size=1000,420 --force-device-scale-factor=2 -->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1000px; height: 420px; overflow: hidden; }
+  body {
+    background: #edf0f3;
+    color: #11161c;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    padding: 24px 32px 0;
+  }
+  header { display: flex; align-items: baseline; gap: 18px; }
+  h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
+  .tag { font-size: 16px; color: #4a5561; }
+  .tag b { color: #11161c; font-weight: 600; }
+  .panels { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; margin-top: 18px; }
+  .panel { background: #11161c; border-radius: 10px; overflow: hidden; height: 318px; display: flex; flex-direction: column; }
+  .bar { display: flex; align-items: center; gap: 6px; padding: 9px 14px; background: #1a2129; color: #8b96a1; font-size: 12.5px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .bar span { margin-left: 8px; }
+  pre { font: inherit; font-size: 13.5px; line-height: 1.6; padding: 12px 16px 0; color: #e6edf3; flex: 1; min-height: 0; overflow: hidden; white-space: pre; }
+  .s { color: #a5d6ff; }
+  .r { color: #f0706a; }
+  .g { color: #4fc98a; }
+  .fade { color: #56616d; }
+  .cap { padding: 9px 16px 11px; font-size: 13px; color: #8b96a1; border-top: 1px solid #222b34; }
+  .cap b { color: #e6edf3; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>When is a CSV cell a number?</h1>
+    <p class="tag">what Rust's <b>parse</b> says yes to</p>
+  </header>
+  <div class="panels">
+    <section class="panel">
+      <div class="bar"><i class="dot" style="background:#ee5f57"></i><i class="dot" style="background:#f4bd4f"></i><i class="dot" style="background:#5fc454"></i><span>str::parse, rustc 1.98</span></div>
+<pre><span class="s">"Nan"</span>.parse::&lt;f64&gt;()        <span class="r">Ok(NaN)</span>
+<span class="s">"INFINITY"</span>.parse::&lt;f64&gt;()   <span class="r">Ok(inf)</span>
+<span class="s">"1e400"</span>.parse::&lt;f64&gt;()      <span class="r">Ok(inf)</span>
+<span class="s">"00544"</span>.parse::&lt;i64&gt;()      <span class="r">Ok(544)</span>
+<span class="s">"12345678901234567890"</span>
+    .parse::&lt;f64&gt;()         <span class="r">Ok(1.2345678901234567e19)</span>
+<span class="fade">// NaN != NaN; …890 and …891 are the same f64</span></pre>
+      <p class="cap"><b>All correct Rust.</b> All lose what the cell said.</p>
+    </section>
+    <section class="panel">
+      <div class="bar"><i class="dot" style="background:#ee5f57"></i><i class="dot" style="background:#f4bd4f"></i><i class="dot" style="background:#5fc454"></i><span>datadiff reads the cell as</span></div>
+<pre>Nan          <span class="g">"Nan"</span>
+INFINITY     <span class="g">"INFINITY"</span>
+1e400        <span class="g">"1e400"</span>
+00544        <span class="g">"00544"</span>
+12345…890    <span class="g">"12345678901234567890"</span>
+100 vs 100.0 <span class="g">equal numbers</span></pre>
+      <p class="cap"><b>A number only if nothing is lost.</b></p>
+    </section>
+  </div>
+</body>
+</html>
