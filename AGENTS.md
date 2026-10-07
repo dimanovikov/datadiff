@@ -25,8 +25,11 @@
   из эксплуатации) — там `cargo install datadiff`
 - Соседние репозитории: `dimanovikov/datadiff-action` (GitHub Action
   для CI-гейтов, floating-тег `v1`) и `dimanovikov/homebrew-datadiff`
-  (Homebrew tap). При новом релизе datadiff обновить sha256 в формуле
-  и при необходимости дефолтную версию в Action
+  (Homebrew tap), `dimanovikov/scoop-bucket` (Scoop). Формулу и манифест
+  после тега обновляет `release.yml` через deploy keys (секреты
+  `HOMEBREW_DEPLOY_KEY`, `SCOOP_DEPLOY_KEY`); повторить для готового тега —
+  ручной запуск Release с `resync: vX.Y.Z`. Action ставит `latest` и при
+  релизе не меняется
 
 ## Сборка и запуск
 

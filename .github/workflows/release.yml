@@ -109,14 +109,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check the packages token
+      # Each package repository has a deploy key with write access, stored
+      # here as a secret. Unlike a personal access token, a deploy key does
+      # not expire and can only push to its own repository.
+      - name: Check the deploy keys
         env:
-          TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+          HOMEBREW_KEY: ${{ secrets.HOMEBREW_DEPLOY_KEY }}
+          SCOOP_KEY: ${{ secrets.SCOOP_DEPLOY_KEY }}
         run: |
-          if [ -z "$TOKEN" ]; then
-            echo "::error::PACKAGES_TOKEN is unset. Create a fine-grained PAT with" \
-                 "Contents: read and write on homebrew-datadiff and scoop-bucket," \
-                 "then add it as a repository secret."
+          if [ -z "$HOMEBREW_KEY" ] || [ -z "$SCOOP_KEY" ]; then
+            echo "::error::HOMEBREW_DEPLOY_KEY or SCOOP_DEPLOY_KEY is unset. Add a" \
+                 "deploy key with write access to homebrew-datadiff and to" \
+                 "scoop-bucket, and store each private key as that secret."
             exit 1
           fi
 
@@ -147,13 +151,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/homebrew-datadiff
-          token: ${{ secrets.PACKAGES_TOKEN }}
+          ssh-key: ${{ secrets.HOMEBREW_DEPLOY_KEY }}
           path: tap
 
       - uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/scoop-bucket
-          token: ${{ secrets.PACKAGES_TOKEN }}
+          ssh-key: ${{ secrets.SCOOP_DEPLOY_KEY }}
           path: bucket
 
       - name: Rewrite the formula and the manifest
