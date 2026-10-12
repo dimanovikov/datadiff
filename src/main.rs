@@ -247,8 +247,14 @@ fn compare(
     new_path: &Path,
     format: Format,
 ) -> anyhow::Result<FileDiff> {
-    let old_value = read_and_parse(old_path, format)?;
-    let new_value = read_and_parse(new_path, format)?;
+    let (old_value, new_value) = if format == Format::Csv {
+        read_and_parse_csv_pair(old_path, new_path)?
+    } else {
+        (
+            read_and_parse(old_path, format)?,
+            read_and_parse(new_path, format)?,
+        )
+    };
 
     // A missing side (git diff driver passes /dev/null for added/deleted
     // files) diffs as an empty container of the other side's type, so an
@@ -401,10 +407,44 @@ fn run_convert(cli: &Cli, input: &Path, output: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Read and parse a file; `Ok(None)` means "no document here": the path is
-/// `/dev/null` (git's placeholder for the missing side of an added/deleted
-/// file), the file is empty, or an empty stdin was passed as `-`.
+/// Read and parse a file; `Ok(None)` means "no document here" (see
+/// [`read_source`]).
 fn read_and_parse(path: &Path, format: Format) -> anyhow::Result<Option<value::Value>> {
+    let Some((text, source)) = read_source(path)? else {
+        return Ok(None);
+    };
+    parse::parse(&text, format)
+        .map(Some)
+        .with_context(|| format!("cannot parse {source}"))
+}
+
+/// Read two versions of a CSV file, deciding which columns hold numbers over
+/// both at once (see [`parse::numeric_columns`]).
+fn read_and_parse_csv_pair(
+    old_path: &Path,
+    new_path: &Path,
+) -> anyhow::Result<(Option<value::Value>, Option<value::Value>)> {
+    let read = |path: &Path| -> anyhow::Result<Option<parse::CsvTable>> {
+        let Some((text, source)) = read_source(path)? else {
+            return Ok(None);
+        };
+        parse::read_csv(&text)
+            .map(Some)
+            .with_context(|| format!("cannot parse {source}"))
+    };
+    let (old, new) = (read(old_path)?, read(new_path)?);
+    let numeric = parse::numeric_columns(old.iter().chain(new.iter()));
+    Ok((
+        old.map(|table| table.into_value(&numeric)),
+        new.map(|table| table.into_value(&numeric)),
+    ))
+}
+
+/// The text of a file and a name for it in error messages. `Ok(None)` means
+/// "no document here": the path is `/dev/null` (git's placeholder for the
+/// missing side of an added/deleted file), the file is empty, or an empty
+/// stdin was passed as `-`.
+fn read_source(path: &Path) -> anyhow::Result<Option<(String, String)>> {
     if path == Path::new("/dev/null") {
         return Ok(None);
     }
@@ -424,9 +464,7 @@ fn read_and_parse(path: &Path, format: Format) -> anyhow::Result<Option<value::V
     if text.trim().is_empty() {
         return Ok(None);
     }
-    parse::parse(&text, format)
-        .map(Some)
-        .with_context(|| format!("cannot parse {source}"))
+    Ok(Some((text, source)))
 }
 
 /// `-` as a file argument means "read this side from stdin".

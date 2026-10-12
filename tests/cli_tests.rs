@@ -233,6 +233,62 @@ fn csv_equal_numbers_in_different_notation_stay_equal() {
 }
 
 #[test]
+fn csv_code_with_an_exponent_stays_text_in_a_column_of_codes() {
+    // A column is numeric only if all of its cells are. Codes like A-17 make
+    // this one a column of codes, where 1E5 is a code and not 100000.
+    let dir = tempfile_dir();
+    let old = write_temp(&dir, "old.csv", "id,sku\n1,A-17\n2,1E5\n");
+    let new = write_temp(&dir, "new.csv", "id,sku\n1,A-17\n2,100000\n");
+
+    let out = run(&[&old, &new], &["--key", "id"]);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(1), "stdout: {stdout}");
+    assert!(
+        stdout.contains("\"1E5\" \u{2192} \"100000\""),
+        "stdout: {stdout}"
+    );
+}
+
+#[test]
+fn csv_column_of_numbers_keeps_notation_equal() {
+    let dir = tempfile_dir();
+    let old = write_temp(&dir, "old.csv", "id,qty\n1,100\n2,1e3\n");
+    let new = write_temp(&dir, "new.csv", "id,qty\n1,100.0\n2,1000\n");
+
+    let out = run(&[&old, &new], &["--key", "id"]);
+
+    assert_eq!(out.status.code(), Some(0), "{:?}", out);
+}
+
+#[test]
+fn csv_column_type_is_decided_over_both_files() {
+    // Deciding per file would make qty numeric in the old file and text in
+    // the new one, and report the untouched row 1 as 100 -> "100".
+    let dir = tempfile_dir();
+    let old = write_temp(&dir, "old.csv", "id,qty\n1,100\n2,200\n");
+    let new = write_temp(&dir, "new.csv", "id,qty\n1,100\n2,N/A\n");
+
+    let out = run(&[&old, &new], &["--key", "id"]);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(1), "stdout: {stdout}");
+    assert!(stdout.contains("1 change "), "stdout: {stdout}");
+    assert!(!stdout.contains("[id=1]"), "stdout: {stdout}");
+}
+
+#[test]
+fn normalize_keeps_a_code_in_a_column_of_codes_as_written() {
+    let dir = tempfile_dir();
+    let file = write_temp(&dir, "parts.csv", "id,sku\n1,A-17\n2,1E5\n");
+
+    let out = run_raw(&["normalize", &file.display().to_string()]);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(stdout.contains("1E5"), "stdout: {stdout}");
+}
+
+#[test]
 fn missing_file_exits_2() {
     let dir = tempfile_dir();
     let b = write_temp(&dir, "b.json", "{}");

@@ -298,6 +298,12 @@ $ datadiff examples/products-old.csv examples/products-new.csv --key id
 3 changes (1 added, 1 removed, 1 modified)
 ```
 
+CSV has no types, so datadiff decides per column: a column holds numbers only
+if every cell in it, in both files, reads as a number without losing what was
+written. `price` above is numeric, so `29.99` and `29.990` would be equal; a
+column of codes such as `A-17` and `1E5`, or of ZIP codes such as `00544`,
+stays text and is compared exactly as written.
+
 Machine-readable output for tooling (`--output json`):
 
 ```sh
