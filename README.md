@@ -11,7 +11,7 @@
 reformatting and rewrapped YAML produce no noise; real changes are reported as
 **data paths**, not line numbers.
 
-![git diff with and without datadiff](docs/screenshots/git-diff-before-after.png)
+![git diff with and without datadiff](docs/screenshots/demo.gif)
 
 ## Quick start
 
@@ -39,6 +39,8 @@ Plain `diff` on structured files is noisy:
 - Reorder a JSON array of objects (e.g. a list of users) — and you get a
   wall of false positives.
 - In a CSV export, one changed price hides inside a full-file text diff.
+
+![19 changed lines in plain git, two changes as data paths with datadiff](docs/screenshots/git-diff-before-after.png)
 
 `datadiff` parses both files into a data tree and compares *that*:
 
