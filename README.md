@@ -223,6 +223,31 @@ The same works for any two directories, `datadiff old/ new/`: files are paired
 by name, a name without a known extension is read as YAML, and nested
 directories are not compared.
 
+### With Argo CD
+
+`argocd app diff` reads the same `KUBECTL_EXTERNAL_DIFF` variable, but calls the
+program once per resource with two files (`<name>-live.yaml` and the desired
+version) instead of two directories. It splits the variable the way a shell
+would, so path options can go straight into it:
+
+```sh
+export KUBECTL_EXTERNAL_DIFF="datadiff --key name"
+argocd app diff api --local ./k8s
+```
+
+```
+===== apps/Deployment default/api ======
+~ spec.replicas: 3 → 5
+~ spec.template.spec.containers[name=api].image: "nginx:1.27" → "nginx:1.28"
+2 changes (0 added, 0 removed, 2 modified)
+```
+
+Same kind cluster, same change as above: plain `argocd app diff` printed 24
+changed lines, because the reordered `api` container came out as removed and
+added again. Argo CD ignores the external program's exit code and sets its own
+(1 when it finds a difference), so `--fail-on` does not change the exit status
+of `argocd app diff`.
+
 ## Installation
 
 **Homebrew** (macOS / Linux):
