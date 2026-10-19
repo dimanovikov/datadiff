@@ -5,7 +5,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/dimanovikov/datadiff)](https://github.com/dimanovikov/datadiff/releases/latest)
 [![license](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
 
-**Semantic diff for JSON, YAML, CSV, TOML and XML that plugs into `git diff`.**
+**Semantic diff for JSON, YAML, CSV, TOML and XML that plugs into `git diff` and `kubectl diff`.**
 
 `datadiff` compares the parsed data instead of the lines. Reordered keys,
 reformatting and rewrapped YAML produce no noise; real changes are reported as
@@ -24,11 +24,15 @@ datadiff old.yaml new.yaml --key name
 # or make git diff use it in the current repository
 git config diff.datadiff.command "datadiff --key name git-diff"
 printf '*.json diff=datadiff\n*.yaml diff=datadiff\n' >> .gitattributes
+
+# or see what kubectl apply would change, field by field
+kubectl datadiff -f k8s/ --key name
 ```
 
 No Homebrew or Rust? See [Installation](#installation) for a one-line
 installer and prebuilt binaries. How the git integration behaves, including
-`git log -p`, is in [Inside `git diff`](#inside-git-diff).
+`git log -p`, is in [Inside `git diff`](#inside-git-diff); the kubectl plugin
+is in [As a kubectl plugin](#as-a-kubectl-plugin).
 
 ## The pain
 

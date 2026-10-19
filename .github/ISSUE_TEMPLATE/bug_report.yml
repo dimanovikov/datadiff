@@ -1,0 +1,40 @@
+name: Bug report
+description: datadiff reports a wrong change, misses one, or fails
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: datadiff version
+      description: Output of `datadiff --version`
+      placeholder: datadiff 0.6.0
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact command, or how git or kubectl runs datadiff
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: inputs
+    attributes:
+      label: Input files
+      description: The smallest pair of files that shows the problem
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What datadiff printed
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true

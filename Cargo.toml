@@ -2,7 +2,7 @@
 name = "datadiff"
 version = "0.6.0"
 edition = "2021"
-description = "Semantic diff for JSON, YAML, CSV, TOML and XML that plugs into git diff"
+description = "Semantic diff for JSON, YAML, CSV, TOML and XML that plugs into git diff and kubectl diff"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/dimanovikov/datadiff"
 homepage = "https://github.com/dimanovikov/datadiff"

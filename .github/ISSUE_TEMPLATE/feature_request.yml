@@ -1,0 +1,16 @@
+name: Feature request
+description: Something datadiff should do but does not
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The task, and where datadiff gets in the way or falls short
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: An option, an output, an integration; an example command is great
