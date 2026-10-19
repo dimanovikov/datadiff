@@ -31,6 +31,9 @@ jobs:
             target: aarch64-unknown-linux-gnu
           - os: macos-14 # Apple Silicon
             target: aarch64-apple-darwin
+          # No Intel runners are left; the Apple toolchain cross-compiles.
+          - os: macos-14
+            target: x86_64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
@@ -44,18 +47,20 @@ jobs:
       - name: Build release binary
         run: cargo build --release --locked --target ${{ matrix.target }}
 
+      # krew wants the license inside the archive it installs from.
       - name: Package (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
           tar -czf datadiff-${{ github.ref_name }}-${{ matrix.target }}.tar.gz \
-            -C target/${{ matrix.target }}/release datadiff
+            -C target/${{ matrix.target }}/release datadiff \
+            -C "$GITHUB_WORKSPACE" LICENSE-MIT LICENSE-APACHE
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           Compress-Archive `
-            -Path target/${{ matrix.target }}/release/datadiff.exe `
+            -Path target/${{ matrix.target }}/release/datadiff.exe, LICENSE-MIT, LICENSE-APACHE `
             -DestinationPath datadiff-${{ github.ref_name }}-${{ matrix.target }}.zip
 
       - name: Upload to GitHub Release
@@ -135,13 +140,14 @@ jobs:
           sums="{}"
           for f in \
             "datadiff-v$version-aarch64-apple-darwin.tar.gz" \
+            "datadiff-v$version-x86_64-apple-darwin.tar.gz" \
             "datadiff-v$version-x86_64-unknown-linux-gnu.tar.gz" \
             "datadiff-v$version-aarch64-unknown-linux-gnu.tar.gz" \
             "datadiff-v$version-x86_64-pc-windows-msvc.zip"; do
             sums=$(jq -c --arg k "$f" --arg v "$(fetch "$base/releases/download/v$version/$f")" \
               '.[$k]=$v' <<<"$sums")
           done
-          # Intel Macs build from source, so the tag tarball needs a checksum too.
+          # The tag tarball too, for a formula that builds from source.
           sums=$(jq -c --arg k "v$version.tar.gz" --arg v "$(fetch "$base/archive/refs/tags/v$version.tar.gz")" \
             '.[$k]=$v' <<<"$sums")
 
@@ -221,3 +227,18 @@ jobs:
       - name: Publish
         working-directory: packaging/npm
         run: npm publish
+
+  # Opens a pull request in kubernetes-sigs/krew-index for the new version,
+  # rendered from .krew.yaml. Off until the repository variable KREW_INDEX is
+  # set to "true": krew only takes bot updates for a plugin already in the
+  # index, and the first version goes in by a hand-made pull request.
+  update-krew:
+    name: Update the krew index
+    needs: build
+    if: github.event_name == 'push' && vars.KREW_INDEX == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Open a krew-index pull request
+        uses: rajatjindal/krew-release-bot@v0.0.51

@@ -223,6 +223,31 @@ The same works for any two directories, `datadiff old/ new/`: files are paired
 by name, a name without a known extension is read as YAML, and nested
 directories are not compared.
 
+### As a kubectl plugin
+
+`kubectl datadiff` is `kubectl diff` with datadiff already in place. It takes
+datadiff's options as plain flags, path options included, so nothing has to
+go through the environment:
+
+```sh
+kubectl datadiff -f deploy.yaml --key name --ignore metadata.generation --fail-on spec.replicas
+```
+
+datadiff's own options (`--key`, `--ignore`, `--fail-on`, `--format`,
+`--show-unchanged`, `--no-color`, `--exit-zero`) go to datadiff, and every
+other argument goes to `kubectl diff` unchanged: `-f`, `-k`, `-n`,
+`--server-side`, `--context` and the rest. The exit code is `kubectl diff`'s.
+
+The plugin is the datadiff binary under the name `kubectl-datadiff`. Homebrew
+and Nix install that name too. With any other install, put a link to datadiff
+under that name anywhere on your PATH:
+
+```sh
+ln -s "$(command -v datadiff)" ~/.local/bin/kubectl-datadiff
+```
+
+On Windows, copy `datadiff.exe` to `kubectl-datadiff.exe` next to it.
+
 ### With Argo CD
 
 `argocd app diff` reads the same `KUBECTL_EXTERNAL_DIFF` variable, but calls the
@@ -272,8 +297,8 @@ irm https://raw.githubusercontent.com/dimanovikov/datadiff/main/install.ps1 | ie
 
 **Manually** — grab the archive for your platform from
 [GitHub Releases](https://github.com/dimanovikov/datadiff/releases/latest)
-(Linux x86_64/ARM, macOS Apple Silicon, Windows x86_64) and put
-`datadiff` on your PATH. Intel Macs: use `cargo install datadiff` instead.
+(Linux x86_64/ARM, macOS Apple Silicon/Intel, Windows x86_64) and put
+`datadiff` on your PATH.
 
 **With Rust installed**:
 

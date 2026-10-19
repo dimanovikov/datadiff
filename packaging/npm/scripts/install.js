@@ -12,6 +12,7 @@ const BASE = "https://github.com/dimanovikov/datadiff/releases/download";
 
 const TARGETS = {
   "darwin-arm64": "aarch64-apple-darwin.tar.gz",
+  "darwin-x64": "x86_64-apple-darwin.tar.gz",
   "linux-x64": "x86_64-unknown-linux-gnu.tar.gz",
   "linux-arm64": "aarch64-unknown-linux-gnu.tar.gz",
   "win32-x64": "x86_64-pc-windows-msvc.zip",

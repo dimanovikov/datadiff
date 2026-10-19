@@ -1,4 +1,5 @@
 mod diff;
+mod kubectl_plugin;
 mod output;
 mod parse;
 mod patch;
@@ -482,6 +483,10 @@ fn empty_like(other: &value::Value) -> value::Value {
 }
 
 fn main() -> ExitCode {
+    // Started as `kubectl datadiff`: the arguments are kubectl's, not ours.
+    if kubectl_plugin::invoked_as_plugin() {
+        return kubectl_plugin::run();
+    }
     dotenvy::dotenv().ok(); // optional .env in the working directory
     let cli = Cli::parse();
     if cli.no_color {

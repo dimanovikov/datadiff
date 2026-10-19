@@ -19,10 +19,16 @@
   macos, когда меняются flake- или Cargo-файлы. nixpkgs обновлять через
   `nix flake update`
 - Релизы: `.github/workflows/release.yml` — по тегу `v*` собирает бинарники
-  (linux x86_64/arm64, macos arm64, windows msvc) и выкладывает в
-  GitHub Releases; `install.sh` / `install.ps1` качают бинарник из
-  последнего релиза. Intel Mac не собираем (раннеры macos-13 выведены
-  из эксплуатации) — там `cargo install datadiff`
+  (linux x86_64/arm64, macos arm64 и x86_64, windows msvc; Intel Mac
+  кросс-компилируется на arm-раннере macos-14) и выкладывает в
+  GitHub Releases вместе с LICENSE-файлами; `install.sh` / `install.ps1`
+  качают бинарник из последнего релиза
+- krew: шаблон манифеста `.krew.yaml`; задача `update-krew` в
+  `release.yml` открывает PR в `kubernetes-sigs/krew-index` через
+  krew-release-bot, включается переменной репозитория `KREW_INDEX=true`
+  (первую версию в индекс вносят руками). Плагин — тот же бинарник под
+  именем `kubectl-datadiff` (`src/kubectl_plugin.rs`); Homebrew, Nix и
+  PKGBUILD для AUR ставят эту ссылку сами
 - Соседние репозитории: `dimanovikov/datadiff-action` (GitHub Action
   для CI-гейтов, floating-тег `v1`) и `dimanovikov/homebrew-datadiff`
   (Homebrew tap), `dimanovikov/scoop-bucket` (Scoop). Формулу и манифест

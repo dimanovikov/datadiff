@@ -23,6 +23,8 @@
           inherit (cargoPackage) version;
           src = self;
           cargoLock.lockFile = ./Cargo.lock;
+          # Run as `kubectl datadiff` under this name.
+          postInstall = "ln -s datadiff $out/bin/kubectl-datadiff";
           meta = {
             inherit (cargoPackage) description homepage;
             license = with pkgs.lib.licenses; [

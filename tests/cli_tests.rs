@@ -1422,6 +1422,239 @@ fn ignore_is_read_from_the_environment() {
     assert_eq!(out.status.code(), Some(0), "{:?}", out);
 }
 
+/// A `kubectl-datadiff` symlink to the binary, as krew installs it, next to a
+/// fake `kubectl` on PATH. The fake records its arguments and the variables
+/// datadiff reads, then does what `kubectl diff` does: runs
+/// `$KUBECTL_EXTERNAL_DIFF` (split on spaces) on a LIVE and a MERGED
+/// directory and exits with its status.
+#[cfg(unix)]
+struct KubectlPlugin {
+    root: std::path::PathBuf,
+    live: std::path::PathBuf,
+    merged: std::path::PathBuf,
+}
+
+#[cfg(unix)]
+impl KubectlPlugin {
+    fn new() -> Self {
+        Self::with_binary_dir("bin")
+    }
+
+    /// `bin_dir` holds the plugin; a name with a space in it checks the path
+    /// that kubectl cannot take in one piece.
+    fn with_binary_dir(bin_dir: &str) -> Self {
+        use std::os::unix::fs::PermissionsExt;
+        let root = tempfile_dir();
+        let (live, merged) = (root.join("LIVE-1"), root.join("MERGED-1"));
+        for dir in [&live, &merged, &root.join("fake"), &root.join(bin_dir)] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        let kubectl = write_temp(
+            &root.join("fake"),
+            "kubectl",
+            "#!/bin/sh\n\
+             printf '%s\\n' \"$@\" > \"$FAKE_LOG/args\"\n\
+             env | grep -E '^(DATADIFF_|KUBECTL_EXTERNAL_DIFF=)' | sort > \"$FAKE_LOG/env\"\n\
+             $KUBECTL_EXTERNAL_DIFF \"$FAKE_LIVE\" \"$FAKE_MERGED\"\n",
+        );
+        std::fs::set_permissions(&kubectl, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let plugin = root.join(bin_dir).join("kubectl-datadiff");
+        if bin_dir.contains(' ') {
+            // A copy, not a symlink: current_exe() resolves a symlink on
+            // Linux, which would hide the space.
+            std::fs::copy(env!("CARGO_BIN_EXE_datadiff"), &plugin).unwrap();
+        } else {
+            std::os::unix::fs::symlink(env!("CARGO_BIN_EXE_datadiff"), &plugin).unwrap();
+        }
+        KubectlPlugin { root, live, merged }
+    }
+
+    fn command(&self, bin_dir: &str) -> Command {
+        let mut cmd = Command::new(self.root.join(bin_dir).join("kubectl-datadiff"));
+        let path = std::env::join_paths(
+            std::iter::once(self.root.join("fake"))
+                .chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())),
+        )
+        .unwrap();
+        cmd.env("PATH", path)
+            .env("FAKE_LOG", &self.root)
+            .env("FAKE_LIVE", &self.live)
+            .env("FAKE_MERGED", &self.merged)
+            .env_remove("DATADIFF_KEY")
+            .env_remove("DATADIFF_IGNORE");
+        cmd
+    }
+
+    fn run(&self, args: &[&str]) -> Output {
+        self.command("bin").args(args).output().unwrap()
+    }
+
+    fn recorded(&self, what: &str) -> String {
+        std::fs::read_to_string(self.root.join(what)).unwrap()
+    }
+
+    /// A Deployment whose containers swap places while one image changes.
+    fn write_deployment(&self) {
+        let deployment = |first: &str, second: &str| {
+            format!("spec:\n  template:\n    spec:\n      containers:\n      - {first}\n      - {second}\n")
+        };
+        let name = "apps.v1.Deployment.default.api";
+        let api = |tag: &str| format!("{{name: api, image: \"nginx:{tag}\"}}");
+        let sidecar = "{name: sidecar, image: \"envoy:1.30\"}";
+        write_temp(&self.live, name, &deployment(&api("1.27"), sidecar));
+        write_temp(&self.merged, name, &deployment(sidecar, &api("1.28")));
+    }
+}
+
+#[test]
+#[cfg(unix)]
+fn kubectl_plugin_sends_datadiff_options_through_the_environment() {
+    let plugin = KubectlPlugin::new();
+
+    let out = plugin.run(&[
+        "-f",
+        "deploy.yaml",
+        "--key",
+        "name",
+        "--ignore",
+        "metadata.generation",
+        "--ignore=metadata.annotations",
+        "-n",
+        "prod",
+        "--no-color",
+    ]);
+
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    // Only kubectl's own arguments reach kubectl, in their order.
+    assert_eq!(plugin.recorded("args"), "diff\n-f\ndeploy.yaml\n-n\nprod\n");
+    let env = plugin.recorded("env");
+    assert!(env.contains("DATADIFF_KEY=name\n"), "env: {env}");
+    assert!(
+        env.contains("DATADIFF_IGNORE=metadata.generation,metadata.annotations\n"),
+        "env: {env}"
+    );
+    assert!(env.contains("DATADIFF_NO_COLOR=true\n"), "env: {env}");
+}
+
+#[test]
+#[cfg(unix)]
+fn kubectl_plugin_shows_what_changed_and_passes_the_exit_code_on() {
+    let plugin = KubectlPlugin::new();
+    plugin.write_deployment();
+
+    let out = plugin.run(&["-f", "deploy.yaml", "--key", "name", "--no-color"]);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(1), "stdout: {stdout}");
+    assert!(
+        stdout.contains(
+            "~ spec.template.spec.containers[name=api].image: \"nginx:1.27\" \u{2192} \"nginx:1.28\""
+        ),
+        "stdout: {stdout}"
+    );
+    assert!(stdout.contains("1 change"), "stdout: {stdout}");
+}
+
+#[test]
+#[cfg(unix)]
+fn kubectl_plugin_exits_zero_when_nothing_changed() {
+    let plugin = KubectlPlugin::new();
+    let name = "v1.ConfigMap.default.cfg";
+    write_temp(&plugin.live, name, "data:\n  a: \"1\"\n  b: \"2\"\n");
+    write_temp(&plugin.merged, name, "data: {b: \"2\", a: \"1\"}\n");
+
+    let out = plugin.run(&["-f", "cfg.yaml", "--no-color"]);
+
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    assert!(out.stdout.is_empty(), "{out:?}");
+}
+
+#[test]
+#[cfg(unix)]
+fn kubectl_plugin_applies_fail_on_that_kubectl_would_drop() {
+    // `--fail-on spec.replicas` written into KUBECTL_EXTERNAL_DIFF loses its
+    // value to kubectl's argument filter; through the plugin it works.
+    let plugin = KubectlPlugin::new();
+    plugin.write_deployment();
+
+    let out = plugin.run(&["--key", "name", "--fail-on", "spec.replicas", "--no-color"]);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "stdout: {stdout}");
+    assert!(stdout.contains("nginx:1.28"), "stdout: {stdout}");
+}
+
+#[test]
+#[cfg(unix)]
+fn kubectl_plugin_works_from_a_path_with_a_space() {
+    let dir = "krew store";
+    let plugin = KubectlPlugin::with_binary_dir(dir);
+    plugin.write_deployment();
+
+    let out = plugin
+        .command(dir)
+        .args(["--key", "name", "--no-color"])
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "stdout: {stdout}\nstderr: {stderr}"
+    );
+    assert!(stdout.contains("nginx:1.28"), "stdout: {stdout}");
+}
+
+#[test]
+#[cfg(unix)]
+fn kubectl_plugin_says_when_kubectl_is_missing() {
+    let plugin = KubectlPlugin::new();
+
+    let out = plugin
+        .command("bin")
+        .env("PATH", plugin.root.join("LIVE-1"))
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert_eq!(out.status.code(), Some(2), "stderr: {stderr}");
+    assert!(stderr.contains("cannot run kubectl"), "stderr: {stderr}");
+}
+
+#[test]
+#[cfg(unix)]
+fn kubectl_plugin_prints_its_own_help() {
+    let plugin = KubectlPlugin::new();
+
+    let out = plugin.run(&["-f", "deploy.yaml", "--help"]);
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "stdout: {stdout}");
+    assert!(
+        stdout.contains("Usage: kubectl datadiff"),
+        "stdout: {stdout}"
+    );
+    assert!(!plugin.root.join("args").exists(), "kubectl was run");
+}
+
+#[test]
+#[cfg(unix)]
+fn kubectl_plugin_rejects_an_unknown_format_before_running_kubectl() {
+    let plugin = KubectlPlugin::new();
+
+    let out = plugin.run(&["--format", "yml"]);
+
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert_eq!(out.status.code(), Some(2), "stderr: {stderr}");
+    assert!(
+        stderr.contains("unknown --format 'yml'"),
+        "stderr: {stderr}"
+    );
+    assert!(!plugin.root.join("args").exists(), "kubectl was run");
+}
+
 mod datadiff_test_support {
     /// Tests run in parallel and write files with the same names, so each one
     /// needs a directory of its own. The clock alone is not enough: on macOS
