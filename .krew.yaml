@@ -1,5 +1,6 @@
 # Template for the krew-index manifest, rendered by krew-release-bot on each
-# release (see the update-krew job in .github/workflows/release.yml).
+# release (see the update-krew job in .github/workflows/release.yml). krew
+# checks for a file named LICENSE, so LICENSE-MIT is installed under that name.
 apiVersion: krew.googlecontainertools.github.com/v1alpha2
 kind: Plugin
 metadata:
@@ -27,27 +28,62 @@ spec:
         arch: arm64
     {{addURIAndSha "https://github.com/dimanovikov/datadiff/releases/download/{{ .TagName }}/datadiff-{{ .TagName }}-aarch64-apple-darwin.tar.gz" .TagName }}
     bin: datadiff
+    files:
+    - from: datadiff
+      to: .
+    - from: LICENSE-MIT
+      to: LICENSE
+    - from: LICENSE-APACHE
+      to: .
   - selector:
       matchLabels:
         os: darwin
         arch: amd64
     {{addURIAndSha "https://github.com/dimanovikov/datadiff/releases/download/{{ .TagName }}/datadiff-{{ .TagName }}-x86_64-apple-darwin.tar.gz" .TagName }}
     bin: datadiff
+    files:
+    - from: datadiff
+      to: .
+    - from: LICENSE-MIT
+      to: LICENSE
+    - from: LICENSE-APACHE
+      to: .
   - selector:
       matchLabels:
         os: linux
         arch: amd64
     {{addURIAndSha "https://github.com/dimanovikov/datadiff/releases/download/{{ .TagName }}/datadiff-{{ .TagName }}-x86_64-unknown-linux-gnu.tar.gz" .TagName }}
     bin: datadiff
+    files:
+    - from: datadiff
+      to: .
+    - from: LICENSE-MIT
+      to: LICENSE
+    - from: LICENSE-APACHE
+      to: .
   - selector:
       matchLabels:
         os: linux
         arch: arm64
     {{addURIAndSha "https://github.com/dimanovikov/datadiff/releases/download/{{ .TagName }}/datadiff-{{ .TagName }}-aarch64-unknown-linux-gnu.tar.gz" .TagName }}
     bin: datadiff
+    files:
+    - from: datadiff
+      to: .
+    - from: LICENSE-MIT
+      to: LICENSE
+    - from: LICENSE-APACHE
+      to: .
   - selector:
       matchLabels:
         os: windows
         arch: amd64
     {{addURIAndSha "https://github.com/dimanovikov/datadiff/releases/download/{{ .TagName }}/datadiff-{{ .TagName }}-x86_64-pc-windows-msvc.zip" .TagName }}
     bin: datadiff.exe
+    files:
+    - from: datadiff.exe
+      to: .
+    - from: LICENSE-MIT
+      to: LICENSE
+    - from: LICENSE-APACHE
+      to: .
