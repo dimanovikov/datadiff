@@ -26,7 +26,7 @@
 - krew: шаблон манифеста `.krew.yaml`; задача `update-krew` в
   `release.yml` открывает PR в `kubernetes-sigs/krew-index` через
   krew-release-bot, включается переменной репозитория `KREW_INDEX=true`
-  (первую версию в индекс вносят руками). Плагин — тот же бинарник под
+  (включена: плагин в индексе с 21.10.2026, kubernetes-sigs/krew-index#6455). Плагин — тот же бинарник под
   именем `kubectl-datadiff` (`src/kubectl_plugin.rs`); Homebrew, Nix и
   PKGBUILD для AUR ставят эту ссылку сами
 - Соседние репозитории: `dimanovikov/datadiff-action` (GitHub Action

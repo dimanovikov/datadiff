@@ -242,9 +242,15 @@ datadiff's own options (`--key`, `--ignore`, `--fail-on`, `--format`,
 other argument goes to `kubectl diff` unchanged: `-f`, `-k`, `-n`,
 `--server-side`, `--context` and the rest. The exit code is `kubectl diff`'s.
 
-The plugin is the datadiff binary under the name `kubectl-datadiff`. Homebrew
-and Nix install that name too. With any other install, put a link to datadiff
-under that name anywhere on your PATH:
+Install it with [krew](https://krew.sigs.k8s.io/), the kubectl plugin manager:
+
+```sh
+kubectl krew install datadiff
+```
+
+The plugin is the datadiff binary under the name `kubectl-datadiff`, and
+Homebrew and Nix install that name as well. With any other install, put a link
+to datadiff under that name anywhere on your PATH:
 
 ```sh
 ln -s "$(command -v datadiff)" ~/.local/bin/kubectl-datadiff
@@ -309,6 +315,13 @@ irm https://raw.githubusercontent.com/dimanovikov/datadiff/main/install.ps1 | ie
 ```sh
 cargo install datadiff          # from crates.io
 cargo install --path .          # from a local checkout
+```
+
+**kubectl plugin** via [krew](https://krew.sigs.k8s.io/), see
+[As a kubectl plugin](#as-a-kubectl-plugin):
+
+```sh
+kubectl krew install datadiff
 ```
 
 **Nix** (flakes):
