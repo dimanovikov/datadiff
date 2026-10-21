@@ -1460,9 +1460,16 @@ impl KubectlPlugin {
         std::fs::set_permissions(&kubectl, std::fs::Permissions::from_mode(0o755)).unwrap();
         let plugin = root.join(bin_dir).join("kubectl-datadiff");
         if bin_dir.contains(' ') {
-            // A copy, not a symlink: current_exe() resolves a symlink on
-            // Linux, which would hide the space.
-            std::fs::copy(env!("CARGO_BIN_EXE_datadiff"), &plugin).unwrap();
+            // A hard link, not a symlink: current_exe() resolves a symlink on
+            // Linux, which would hide the space. Not a copy either: writing
+            // the copy leaves a write handle that a test forking on another
+            // thread can inherit for a moment, and running the copy then
+            // fails with "Text file busy". A copy is the fallback only where
+            // a link cannot cross filesystems.
+            let binary = env!("CARGO_BIN_EXE_datadiff");
+            if std::fs::hard_link(binary, &plugin).is_err() {
+                std::fs::copy(binary, &plugin).unwrap();
+            }
         } else {
             std::os::unix::fs::symlink(env!("CARGO_BIN_EXE_datadiff"), &plugin).unwrap();
         }
